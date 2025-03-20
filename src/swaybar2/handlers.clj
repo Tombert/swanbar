@@ -16,6 +16,7 @@
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]]))
 
+
 (def wifi-map {:connected  "📶"
                :disconnected "❌"
                })
@@ -83,9 +84,7 @@
                 (< vol small-speaker-cutoff)  "🔈"
                 (< vol mid-speaker-cutoff)  "🔉"
                 :else "🔊"
-                )
-         
-         ]
+                )]
      {:out (str symb vol "%")}))
 
 (defmethod render :wifi [_ wifi] 

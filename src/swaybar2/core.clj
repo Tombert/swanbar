@@ -4,6 +4,7 @@
            [java.nio.channels Channels SelectableChannel Selector SelectionKey]
            [java.lang ProcessBuilder ProcessBuilder$Redirect]
 
+           [java.util.concurrent Executors]
            [java.nio ByteBuffer]
            [java.lang System]
            )
@@ -11,6 +12,7 @@
         ;[clojure.string :only split-lines]
         )
   (:require 
+    [clojure.core.async.impl.dispatch :as dispatch]
     [clojure.data.json :as json]
     [swaybar2.handlers :as h
      :refer [render fetch-data mouse-handler]
@@ -18,9 +20,8 @@
     [clojure.core.async
              :as a
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
-                     alts! alts!! timeout]])
-  )
-;
+                     alts! alts!! timeout]])) 
+
 (defn force-graal-to-include-processbuilder []
   (doto (ProcessBuilder. ["true"])
     (.redirectOutput ProcessBuilder$Redirect/INHERIT)
@@ -100,12 +101,15 @@
              (recur))))
 
 
-(defn -main [] 
+(defn -main []
+  (let [executor-var (ns-resolve 'clojure.core.async.impl.dispatch 'EXECUTOR)]
+    (when executor-var
+      (alter-var-root executor-var
+                      (constantly (Executors/newFixedThreadPool 1)))))
+  ;; rest of your main...
   (let [in-chan (chan 20)]
     (force-graal-to-include-processbuilder)
     (renderer in-chan)
     (do-all 50 in-chan [:volume :selected :wifi :battery :date])
-
-
     (<!! (chan))))
 
