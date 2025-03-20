@@ -143,6 +143,7 @@
     (recur))))
 
 (defn render-date [date]
+
   (str (get day-abbrev (:day-of-week date) (:day-of-week date)) " " (get month-abbrev (:month date) (:month date))  " " (:day-of-month date) " " (format "%02d" (mod (:hour date) 12)) ":" (format "%02d" (:minute date)) " " (if ( < (:hour date) 12) "AM" "PM" )))
 
 (defn render-selected [selected] 
@@ -165,27 +166,33 @@
 
 (defn renderer [my-timeout]
 
-        (<!! (timeout 1000))
+        
 	(println "{\"version\":1, \"click_events\":true}")
 	(println "[")
 	(println "[],")
 
   (go-loop []
-           (let [
-                 rendered-date (render-date @date-state)
-                 rendered-wifi (render-wifi @wifi-state)
-                 rendered-current-prog (render-selected @prog-state)
-                 rendered-battery (render-battery @battery-state)
-                 out-obj [
-                          {:name "current" :instance "current" :full_text rendered-current-prog }
-                          {:name "wifi" :instance "wifi" :full_text rendered-wifi }
-                          {:name "battery" :instance "battery" :full_text rendered-battery }
-                          {:name "time" :instance "time" :full_text rendered-date}]
-                 out-json (json/write-str out-obj)
-                 out-final (str out-json ",")
+           (let [ddate-state @date-state
+                 wwifi-state @wifi-state
+                 pprog-state @prog-state
+                 bbattery-state @battery-state
                  ]
+             (when (not (or (nil? (:day-of-week ddate-state)) (nil? (:connect-status wwifi-state)) (nil? (:capacity bbattery-state))  ))
+               (let [
+                     rendered-date (render-date ddate-state)
+                     rendered-wifi (render-wifi wwifi-state)
+                     rendered-current-prog (render-selected pprog-state)
+                     rendered-battery (render-battery bbattery-state)
+                     out-obj [
+                              {:name "current" :instance "current" :full_text rendered-current-prog }
+                              {:name "wifi" :instance "wifi" :full_text rendered-wifi }
+                              {:name "battery" :instance "battery" :full_text rendered-battery }
+                              {:name "time" :instance "time" :full_text rendered-date}]
+                     out-json (json/write-str out-obj)
+                     out-final (str out-json ",")
+                     ]
 
-             (println out-final)
+                 (println out-final)))
              (<! (timeout my-timeout))
            (recur))))
 
