@@ -70,6 +70,24 @@
   (fn [method _]
     method))
 
+
+(defmethod render :volume [_ volume]
+   (let [
+         is-muted (:is-muted volume)
+         small-speaker-cutoff 40
+         mid-speaker-cutoff 80
+         vol-raw (:volume volume)
+         vol (-> vol-raw (clojure.string/replace #"%" "") (Integer/parseInt))
+         symb (cond 
+                is-muted "🔇"
+                (< vol small-speaker-cutoff)  "🔈"
+                (< vol mid-speaker-cutoff)  "🔉"
+                :else "🔊"
+                )
+         
+         ]
+     {:out (str symb vol "%")}))
+
 (defmethod render :wifi [_ wifi] 
   (let [
         symb (->> wifi :connect-status (get wifi-map))
@@ -111,6 +129,23 @@
 (defmulti fetch-data 
   (fn [method]
     method))
+
+
+(defmethod fetch-data :volume [_] 
+  (let [
+        is-muted (-> 
+                   (sh "pactl" "get-sink-mute" "@DEFAULT_SINK@") 
+                   :out 
+                   clojure.string/trim 
+                   (clojure.string/split #" ") 
+                   last 
+                   (= "yes"))
+        volume-level (-> 
+                       (sh "pactl" "get-sink-volume" "@DEFAULT_SINK@") 
+                       :out 
+                       (clojure.string/split #" ") 
+                       (get 5)) ]
+    {:data {:is-muted is-muted :volume volume-level}}))
 
 (defmethod fetch-data :date [_]
   (let [
@@ -163,7 +198,12 @@
         capacity (clojure.string/trim 
                    (clojure.string/replace 
                      (slurp (str bat-path "/capacity")) #"\"" ""))
-        status (->  (str bat-path "/status") slurp (clojure.string/lower-case) (clojure.string/replace #" " "") clojure.string/trim keyword) ]
+        status (->  
+                 (str bat-path "/status") 
+                 slurp 
+                 (clojure.string/lower-case) 
+                 (clojure.string/replace #" " "") 
+                 clojure.string/trim keyword)]
     {:data 
      { 
       :capacity capacity :status status}}))
@@ -177,8 +217,10 @@
 (defmulti mouse-handler (fn [a] a))
 
 (defmethod mouse-handler :wifi [_]
-  (spit "/home/tombert/dbg" "howdy" :append true)
   (run-detached "iwgtk"))
+
+(defmethod mouse-handler :volume [_]
+  (run-detached "pavucontrol"))
 
 (defmethod mouse-handler :default [_]
   

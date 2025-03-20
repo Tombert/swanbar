@@ -63,10 +63,16 @@
       out-obj)
          )
 
-(defn do-all [my-timeout events]
-  (println "{\"version\":1, \"click_events\":true}")
-  (println "[")
-  (println "[],")
+(defn renderer [input-chan]
+  (go-loop []
+    (let [msg (<! input-chan)]
+      (println msg))
+    (recur)))
+
+(defn do-all [my-timeout in-chan events]
+  (>!! in-chan "{\"version\":1, \"click_events\":true}")
+  (>!! in-chan "[")
+  (>!! in-chan "[],")
   (go-loop []
            (let [
                  input (read-stdin-if-ready)
@@ -88,16 +94,18 @@
                             (json/write-str results) 
                             ",")] 
              (mouse-handler click-event)
-             (println out-json)
+             ;(println out-json)
+             (>! in-chan out-json)
              (<! (timeout my-timeout))
              (recur))))
 
 
 (defn -main [] 
+  (let [in-chan (chan 20)]
+    (force-graal-to-include-processbuilder)
+    (renderer in-chan)
+    (do-all 50 in-chan [:volume :selected :wifi :battery :date])
 
-  (force-graal-to-include-processbuilder)
-  (do-all 50 [:selected :wifi :battery :date])
 
-
-   (<!! (chan)))
+    (<!! (chan))))
 
