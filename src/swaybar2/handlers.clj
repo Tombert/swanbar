@@ -5,6 +5,7 @@
            [java.nio.channels Channels SelectableChannel Selector SelectionKey]
            [java.nio ByteBuffer]
            [java.lang System]
+           [java.time Duration]
            )
   (:use [clojure.java.shell :only [sh]]
         ;[clojure.string :only split-lines]
@@ -126,10 +127,10 @@
   {:out "NOT AVAILABLE"})
 
 (defmulti fetch-data 
-  (fn [method]
+  (fn [method _]
     method))
 
-(defmethod fetch-data :volume [_] 
+(defmethod fetch-data :volume [_ timeout] 
   (let [
         is-muted (-> 
                    (sh "pactl" "get-sink-mute" "@DEFAULT_SINK@") 
@@ -143,11 +144,13 @@
                    :out 
                    (clojure.string/split #" ") ) 
         volume-level (if (= "/" (get vol-info 5)) (get vol-info 4) (get vol-info 5))
-        
+        now (System/currentTimeMillis)
         ]
-    {:data {:is-muted is-muted :volume volume-level}}))
+     {:expires (+ now timeout)
+      :data {:is-muted is-muted 
+             :volume volume-level}}))
 
-(defmethod fetch-data :date [_]
+(defmethod fetch-data :date [_ timeout]
   (let [
           now (LocalDateTime/now)
           month (clojure.string/trim (str (.getMonth now)))
@@ -157,8 +160,11 @@
           hour  (.getHour now)
           ssecond  (.getSecond now)
           minute  (.getMinute now)
+          now (System/currentTimeMillis)
+          expire-time (+ now timeout)
           ] 
-    {:data {
+    {:expires expire-time
+     :data {
         :month month 
         :day-of-week day-of-week 
         :day-of-month day-of-month 
@@ -168,31 +174,38 @@
         :minute minute
         } }))
 
-(defmethod fetch-data :wifi [_]
+(defmethod fetch-data :wifi [_ timeout]
   (let [ 
         params (->> (sh "iw" "dev") :out (clojure.string/split-lines) (mapv clojure.string/trim))
         interface (-> params (get 5) (clojure.string/split #" ") last)
         ssid (-> params (get 9) (clojure.string/split #" ") last)
         iw-link (sh "iw" interface "link" )
         is-connected (not (nil? (clojure.string/index-of (sh "iw" interface "link") "Connected")))
-        connect-status (if is-connected :connected :disconnected)]
-    {:data {
+        connect-status (if is-connected :connected :disconnected)
+        now (System/currentTimeMillis)
+        expire-time (+ now timeout)
+        ]
+    {:expires expire-time
+     :data {
             :ssid ssid 
             :connect-status connect-status }}))
 
-
-(defmethod fetch-data :selected [_]
+(defmethod fetch-data :selected [_ timeout]
   (let [selected-prog (-> 
                         (sh "swaymsg" "-t" "get_tree") 
                         :out 
                         (json/read-str) 
                         (find-deep) 
-                        (get "app_id"))]
-    {:data 
+                        (get "app_id"))
+        now (System/currentTimeMillis)
+        expire-time (+ now timeout)
+        ]
+    {:expires expire-time
+     :data 
      {
       :current-prog selected-prog}}))
 
-(defmethod fetch-data :battery [_]
+(defmethod fetch-data :battery [_ timeout]
   (let [
         bat-path "/sys/class/power_supply/BAT0"
         capacity (clojure.string/trim 
@@ -203,13 +216,17 @@
                  slurp 
                  (clojure.string/lower-case) 
                  (clojure.string/replace #" " "") 
-                 clojure.string/trim keyword)]
-    {:data 
+                 clojure.string/trim keyword)
+        now (System/currentTimeMillis)
+        expire-time (+ now timeout)
+        ]
+    {:expires expire-time 
+     :data 
      { 
       :capacity capacity :status status}}))
 
 
-(defmethod fetch-data :default [_]
+(defmethod fetch-data :default [_ timeout]
   {:data {}}
   )
 

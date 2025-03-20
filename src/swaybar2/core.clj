@@ -7,6 +7,7 @@
            [java.util.concurrent Executors]
            [java.nio ByteBuffer]
            [java.lang System]
+           [java.time Duration]
            )
   (:use [clojure.java.shell :only [sh]])
   (:require 
@@ -19,6 +20,8 @@
              :as a
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]])) 
+
+(def state (atom {}))
 
 (def TIMEOUT-MS 50)
 
@@ -54,13 +57,20 @@
       :else :nothing)))
 
 (defn- do-all-handler [i]
-     (let [data (fetch-data i)
-          rendered (render i (:data data))
+     (let [kkey (-> i (get "name") keyword)
+           curr-state @state
+           timeout (-> i (get "timeout"))
+           now (System/currentTimeMillis)
+           data (if (> now (or (get-in curr-state [kkey :expires]) 0))
+                  (let [results (fetch-data kkey timeout)]
+                      (swap! state assoc kkey results)
+                      results)
+                  (get-in curr-state [kkey]))
+          rendered (render kkey (:data data))
           ; _ (spit "/home/tombert/dbg" "poop" :append true)
-          out-obj {:name i :instance i :full_text (:out rendered)}
+          out-obj {:name (get i "name") :instance (get i "name") :full_text (:out rendered)}
           ]
-      out-obj)
-         )
+       out-obj))
 
 (defn renderer [input-chan]
   (go-loop []
@@ -108,13 +118,14 @@
     (when executor-var
       (alter-var-root executor-var
                       (constantly (Executors/newFixedThreadPool 1))))
-    (let [in-chan (chan 20)
-          options (if (empty? args) 
-                    (do [:volume :selected :wifi :battery :date])
-                    (do (args-to-keys args)))
+    (let [
+          json-path (if (empty? args)  "swaybar-config.json" (first args))
+          input-json (slurp json-path)
+          input (json/read-str input-json)
+          in-chan (chan 20)
           ]
       (force-graal-to-include-processbuilder)
       (renderer in-chan)
-      (do-all TIMEOUT-MS in-chan options)
+      (do-all TIMEOUT-MS in-chan input)
       (<!! (chan)))))
 

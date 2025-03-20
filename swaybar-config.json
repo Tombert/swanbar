@@ -1,0 +1,22 @@
+[
+  {
+	  "name": "volume",
+	  "timeout": 0 
+  },
+  {
+	  "name": "selected",
+	  "timeout": 0 
+  },
+  {
+	  "name": "wifi",
+	  "timeout": 0 
+  },
+  {
+	  "name": "battery",
+	  "timeout": 0 
+  },
+  {
+	  "name": "date",
+	  "timeout": 0 
+  }
+]
