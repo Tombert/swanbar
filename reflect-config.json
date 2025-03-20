@@ -1,0 +1,13 @@
+[
+  {
+    "name": "java.lang.ProcessBuilder",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.lang.ProcessBuilder$Redirect",
+    "allDeclaredFields": true,
+    "allDeclaredMethods": true
+  }
+]
+

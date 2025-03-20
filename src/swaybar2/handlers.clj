@@ -1,6 +1,11 @@
 (ns swaybar2.handlers
   (:gen-class)
-  (:import [java.time LocalDateTime])
+  (:import [java.time LocalDateTime]
+           [java.lang ProcessBuilder ProcessBuilder$Redirect]
+           [java.nio.channels Channels SelectableChannel Selector SelectionKey]
+           [java.nio ByteBuffer]
+           [java.lang System]
+           )
   (:use [clojure.java.shell :only [sh]]
         ;[clojure.string :only split-lines]
         )
@@ -9,8 +14,8 @@
     [clojure.core.async
              :as a
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
-                     alts! alts!! timeout]])
-  )
+                     alts! alts!! timeout]]))
+
 
 (defn find-deep [x]
   (cond
@@ -145,3 +150,19 @@
                  status (->  "/sys/class/power_supply/BAT0/status" slurp (clojure.string/lower-case) (clojure.string/replace #" " "") clojure.string/trim keyword) ]
              {:data { 
                      :capacity capacity :status status}}))
+
+(defn run-detached [cmd & args]
+  (let [pb (ProcessBuilder. (into [cmd] args))]
+    (.redirectOutput pb ProcessBuilder$Redirect/DISCARD)
+    (.redirectError pb ProcessBuilder$Redirect/DISCARD)
+    (.start pb))) 
+
+(defmulti mouse-handler (fn [a] a))
+
+(defmethod mouse-handler :wifi [_]
+  (run-detached "iwgtk"))
+
+(defmethod mouse-handler :default [_]
+  
+  )
+
