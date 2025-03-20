@@ -21,10 +21,6 @@
                      alts! alts!! timeout]])
   )
 ;
-; (def stdin-channel
-;   (-> System/in
-;       Channels/newChannel))
-
 (defn force-graal-to-include-processbuilder []
   (doto (ProcessBuilder. ["true"])
     (.redirectOutput ProcessBuilder$Redirect/INHERIT)
@@ -37,45 +33,33 @@
         (.read in buffer)
         (String. buffer)))))
 
-(def date-state (atom {}))
-(def wifi-state (atom {}))
-(def prog-state (atom {}))
-(def battery-state (atom {}))
+(def TIMEOUT-MS 50)
 
-(def DATE-TIMEOUT 500)
-(def WIFI-TIMEOUT 100)
-(def PROG-TIMEOUT 100)
-(def BATTERY-TIMEOUT 100)
-
-; (slurp "/sys/class/power_supply/BAT0/capacity")
-; (def interface (last (split (get (mapv trim (split-lines (:out (sh "iw" "dev"))) ) 5) #" ")))
-
-; (index-of (sh "iw" interface "link") "Connected")
-
-(def wifi-map {:connected  "📶"
-               :disconnected "❌"
-               })
-(def battery-map {:charging "⚡"
-                  :discharging "🔋"
-                  :notcharging "🔌"
-                  })
+(defn- parse-n-key [input]
+  (-> input
+      json/read-str 
+      (get "instance") 
+      (clojure.string/trim) 
+      keyword))
 
 (defn parse-std [input]
-  (if (and (not (nil? input)) (not (empty? (clojure.string/trim input))))
+  (if (and 
+        (not (nil? input)) 
+        (not (empty? (clojure.string/trim input))))
     (cond
-      (= (first input) \,) (-> input (subs 1) (json/read-str) (get "instance") (clojure.string/trim) keyword )
-      (= (first input) \{) (-> input (json/read-str) (get "instance") (clojure.string/trim) keyword)
+      (= (first input) \,) (-> input 
+                               (subs 1) 
+                               parse-n-key)
+      (= (first input) \{) (-> input 
+                               parse-n-key)
       :else :nothing)))
 
 (defn- do-all-handler [i]
      (let [data (fetch-data i)
           rendered (render i (:data data))
-          input (read-stdin-if-ready)
-          click-event (parse-std input)
           ; _ (spit "/home/tombert/dbg" "poop" :append true)
           out-obj {:name i :instance i :full_text (:out rendered)}
           ]
-      (mouse-handler click-event)
       out-obj)
          )
 
@@ -85,18 +69,25 @@
   (println "[],")
   (go-loop []
            (let [
+                 input (read-stdin-if-ready)
+                 click-event (parse-std input)
                  chs (vec (for [i events]
                             (go (do-all-handler i))))
                  results (loop [chs chs
                                 acc []
-                                ] (do 
-                                    (if (empty? chs)
-                                      (do acc)
-                                      (let [ch (first chs)
-                                            res (<! ch)
-                                            ] 
-                                        (recur (rest chs) (conj acc res))))))
-                 out-json (str (json/write-str results) ",")] 
+                                ] 
+                           (do 
+                             (if (empty? chs)
+                               (do acc)
+                               (let [ch (first chs)
+                                     res (<! ch) ] 
+                                 (recur 
+                                   (rest chs) 
+                                   (conj acc res))))))
+                 out-json (str 
+                            (json/write-str results) 
+                            ",")] 
+             (mouse-handler click-event)
              (println out-json)
              (<! (timeout my-timeout))
              (recur))))
@@ -105,12 +96,7 @@
 (defn -main [] 
 
   (force-graal-to-include-processbuilder)
-  ; (update-date DATE-TIMEOUT)
-  ; (update-battery BATTERY-TIMEOUT)
-  ; (update-selected-program PROG-TIMEOUT)
-  ; (update-wifi WIFI-TIMEOUT)
-  ; (renderer 100)
-  (do-all 100 [:selected :wifi :battery :date])
+  (do-all 50 [:selected :wifi :battery :date])
 
 
    (<!! (chan)))

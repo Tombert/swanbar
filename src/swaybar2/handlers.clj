@@ -16,21 +16,6 @@
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]]))
 
-
-(defn find-deep [x]
-  (cond
-    (and (map? x) (true? (get x "focused")))
-    x
-
-    (map? x)
-    (some find-deep (vals x))
-
-    (sequential? x)
-    (some find-deep x)
-
-    :else
-    nil))
-
 (def wifi-map {:connected  "📶"
                :disconnected "❌"
                })
@@ -49,6 +34,7 @@
                   "SATURDAY" "Sat"
                   "SUNDAY" "Sun"
                   })
+
 (def month-abbrev {
                    "JANUARY" "Jan"
                    "FEBRUARY" "Feb"
@@ -64,10 +50,25 @@
                    "DECEMBER" "Dec"
                    })
 
+
+(defn- find-deep [x]
+  (cond
+    (and (map? x) (true? (get x "focused")))
+    x
+
+    (map? x)
+    (some find-deep (vals x))
+
+    (sequential? x)
+    (some find-deep x)
+
+    :else
+    nil))
+
+
 (defmulti render 
   (fn [method _]
-    method
-    ))
+    method))
 
 (defmethod render :wifi [_ wifi] 
   (let [
@@ -84,7 +85,18 @@
     {:out (str symb " " capacity "%")}))
 
 (defmethod render :date [_ date]
- {:out (str (get day-abbrev (:day-of-week date) (:day-of-week date)) " " (get month-abbrev (:month date) (:month date))  " " (:day-of-month date) " " (format "%02d" (mod (:hour date) 12)) ":" (format "%02d" (:minute date)) " " (if ( < (:hour date) 12) "AM" "PM" ))})
+  (let [weekday (get day-abbrev (:day-of-week date) (:day-of-week date))
+        month (get month-abbrev (:month date) (:month date))
+        day (:day-of-month date)
+        hour (format "%02d" (mod (:hour date) 12))
+        minute (format "%02d" (:minute date))
+        ampm (if ( < (:hour date) 12) "AM" "PM")
+        ]
+ {:out (str weekday " " 
+            month  " " 
+            day " " 
+            hour ":" minute " " 
+            ampm)}))
 
 
 (defmethod render :selected [_ selected]
@@ -131,27 +143,32 @@
         connect-status (if is-connected :connected :disconnected)]
     {:data {
             :ssid ssid 
-            :connect-status connect-status
-            }}))
+            :connect-status connect-status }}))
 
 
 (defmethod fetch-data :selected [_]
-  (let [
-        ;tree (-> (sh "swaymsg" "-t" "get_tree") :out (json/read-str))
-        selected-prog (-> (sh "swaymsg" "-t" "get_tree") :out (json/read-str) (find-deep) (get "app_id"))
-        ]
-
-    {:data {
-            :current-prog selected-prog}}))
+  (let [selected-prog (-> 
+                        (sh "swaymsg" "-t" "get_tree") 
+                        :out 
+                        (json/read-str) 
+                        (find-deep) 
+                        (get "app_id"))]
+    {:data 
+     {
+      :current-prog selected-prog}}))
 
 (defmethod fetch-data :battery [_]
-(let [
-                 capacity (clojure.string/trim (clojure.string/replace (slurp "/sys/class/power_supply/BAT0/capacity") #"\"" ""))
-                 status (->  "/sys/class/power_supply/BAT0/status" slurp (clojure.string/lower-case) (clojure.string/replace #" " "") clojure.string/trim keyword) ]
-             {:data { 
-                     :capacity capacity :status status}}))
+  (let [
+        bat-path "/sys/class/power_supply/BAT0"
+        capacity (clojure.string/trim 
+                   (clojure.string/replace 
+                     (slurp (str bat-path "/capacity")) #"\"" ""))
+        status (->  (str bat-path "/status") slurp (clojure.string/lower-case) (clojure.string/replace #" " "") clojure.string/trim keyword) ]
+    {:data 
+     { 
+      :capacity capacity :status status}}))
 
-(defn run-detached [cmd & args]
+(defn- run-detached [cmd & args]
   (let [pb (ProcessBuilder. (into [cmd] args))]
     (.redirectOutput pb ProcessBuilder$Redirect/DISCARD)
     (.redirectError pb ProcessBuilder$Redirect/DISCARD)
@@ -160,6 +177,7 @@
 (defmulti mouse-handler (fn [a] a))
 
 (defmethod mouse-handler :wifi [_]
+  (spit "/home/tombert/dbg" "howdy" :append true)
   (run-detached "iwgtk"))
 
 (defmethod mouse-handler :default [_]
