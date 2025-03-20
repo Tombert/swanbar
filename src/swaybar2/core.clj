@@ -8,9 +8,7 @@
            [java.nio ByteBuffer]
            [java.lang System]
            )
-  (:use [clojure.java.shell :only [sh]]
-        ;[clojure.string :only split-lines]
-        )
+  (:use [clojure.java.shell :only [sh]])
   (:require 
     [clojure.core.async.impl.dispatch :as dispatch]
     [clojure.data.json :as json]
@@ -21,6 +19,8 @@
              :as a
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]])) 
+
+(def TIMEOUT-MS 50)
 
 (defn force-graal-to-include-processbuilder []
   (doto (ProcessBuilder. ["true"])
@@ -33,8 +33,6 @@
       (let [buffer (byte-array (.available in))]
         (.read in buffer)
         (String. buffer)))))
-
-(def TIMEOUT-MS 50)
 
 (defn- parse-n-key [input]
   (-> input
@@ -81,13 +79,12 @@
                  chs (vec (for [i events]
                             (go (do-all-handler i))))
                  results (loop [chs chs
-                                acc []
-                                ] 
+                                acc []] 
                            (do 
                              (if (empty? chs)
                                (do acc)
                                (let [ch (first chs)
-                                     res (<! ch) ] 
+                                     res (<! ch)] 
                                  (recur 
                                    (rest chs) 
                                    (conj acc res))))))
@@ -99,17 +96,25 @@
              (>! in-chan out-json)
              (<! (timeout my-timeout))
              (recur))))
+(defn- args-to-keys [args]
+  (->> args
+       (map clojure.string/trim)
+       (map keyword)
+       vec
+       ))
 
-
-(defn -main []
+(defn -main [& args]
   (let [executor-var (ns-resolve 'clojure.core.async.impl.dispatch 'EXECUTOR)]
     (when executor-var
       (alter-var-root executor-var
-                      (constantly (Executors/newFixedThreadPool 1)))))
-  ;; rest of your main...
-  (let [in-chan (chan 20)]
-    (force-graal-to-include-processbuilder)
-    (renderer in-chan)
-    (do-all 50 in-chan [:volume :selected :wifi :battery :date])
-    (<!! (chan))))
+                      (constantly (Executors/newFixedThreadPool 1))))
+    (let [in-chan (chan 20)
+          options (if (empty? args) 
+                    (do [:volume :selected :wifi :battery :date])
+                    (do (args-to-keys args)))
+          ]
+      (force-graal-to-include-processbuilder)
+      (renderer in-chan)
+      (do-all TIMEOUT-MS in-chan options)
+      (<!! (chan)))))
 

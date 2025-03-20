@@ -24,6 +24,7 @@
 (def battery-map {:charging "⚡"
                   :discharging "🔋"
                   :notcharging "🔌"
+                  :full "🟢"
                   })
 
 (def day-abbrev {
@@ -87,6 +88,7 @@
                 )]
      {:out (str symb vol "%")}))
 
+
 (defmethod render :wifi [_ wifi] 
   (let [
         symb (->> wifi :connect-status (get wifi-map))
@@ -121,14 +123,11 @@
     {:out (str curr)}))
 
 (defmethod render :default [_ _]
-  {:out "NOT AVAILABLE" }
-  )
-
+  {:out "NOT AVAILABLE"})
 
 (defmulti fetch-data 
   (fn [method]
     method))
-
 
 (defmethod fetch-data :volume [_] 
   (let [
@@ -139,11 +138,13 @@
                    (clojure.string/split #" ") 
                    last 
                    (= "yes"))
-        volume-level (-> 
-                       (sh "pactl" "get-sink-volume" "@DEFAULT_SINK@") 
-                       :out 
-                       (clojure.string/split #" ") 
-                       (get 5)) ]
+        vol-info (-> 
+                   (sh "pactl" "get-sink-volume" "@DEFAULT_SINK@") 
+                   :out 
+                   (clojure.string/split #" ") ) 
+        volume-level (if (= "/" (get vol-info 5)) (get vol-info 4) (get vol-info 5))
+        
+        ]
     {:data {:is-muted is-muted :volume volume-level}}))
 
 (defmethod fetch-data :date [_]
@@ -206,6 +207,11 @@
     {:data 
      { 
       :capacity capacity :status status}}))
+
+
+(defmethod fetch-data :default [_]
+  {:data {}}
+  )
 
 (defn- run-detached [cmd & args]
   (let [pb (ProcessBuilder. (into [cmd] args))]
