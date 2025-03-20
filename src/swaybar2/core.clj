@@ -6,6 +6,9 @@
         )
   (:require 
     [clojure.data.json :as json]
+    [swaybar2.handlers :as h
+     :refer [render]
+     ]
     [clojure.core.async
              :as a
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
@@ -76,9 +79,6 @@
     :else
     nil))
 
-; (-> (sh "swaymsg" "-t" "get_tree") :out (json/read-str))
-;
-; (-> (sh "swaymsg" "-t" "get_tree") :out (json/read-str) (find-deep) (get "app_id"))
 
 (defn update-selected-program [my-timeout]
   (go-loop []
@@ -91,29 +91,6 @@
              (<! (timeout my-timeout))
              (recur))))
 
-(def day-abbrev {
-                  "MONDAY" "Mon"
-                  "TUESDAY" "Tues"
-                  "WEDNESDAY" "Wed"
-                  "THURSDAY" "Thurs"
-                  "FRIDAY" "Fri"
-                  "SATURDAY" "Sat"
-                  "SUNDAY" "Sun"
-                  })
-(def month-abbrev {
-                   "JANUARY" "Jan"
-                   "FEBRUARY" "Feb"
-                   "MARCH" "Mar"
-                   "APRIL" "Apr"
-                   "MAY" "May"
-                   "JUNE" "Jun"
-                   "JULY" "Jul"
-                   "AUGUST" "Aug"
-                   "SEPTEMBER" "Sep"
-                   "OCTOBER" "Oct"
-                   "NOVEMBER" "Nov"
-                   "DECEMBER" "Dec"
-                   })
 
 
 
@@ -142,27 +119,6 @@
     (<! (timeout my-timeout))
     (recur))))
 
-(defn render-date [date]
-
-  (str (get day-abbrev (:day-of-week date) (:day-of-week date)) " " (get month-abbrev (:month date) (:month date))  " " (:day-of-month date) " " (format "%02d" (mod (:hour date) 12)) ":" (format "%02d" (:minute date)) " " (if ( < (:hour date) 12) "AM" "PM" )))
-
-(defn render-selected [selected] 
-  (let [ curr (:current-prog selected)]
-  (str curr)))
-
-(defn render-wifi [wifi]
-  (let [
-        symb (->> wifi :connect-status (get wifi-map))
-        ssid (->> wifi :ssid )
-        ]
-   (str ssid " " symb )))
-
-(defn render-battery [battery]
-  (let [capacity (:capacity battery)
-        status (:status battery) 
-        symb (get battery-map status "❓")
-        ]
-    (str symb " " capacity "%")))
 
 (defn renderer [my-timeout]
 
@@ -177,14 +133,13 @@
                  pprog-state @prog-state
                  bbattery-state @battery-state
                  ]
-             (when (not (or (nil? (:day-of-week ddate-state)) (nil? (:connect-status wwifi-state)) (nil? (:capacity bbattery-state))  ))
+             (when (not (or (empty? ddate-state) (empty? wwifi-state) (empty? bbattery-state)  ))
                (let [
-                     rendered-date (render-date ddate-state)
-                     rendered-wifi (render-wifi wwifi-state)
-                     rendered-current-prog (render-selected pprog-state)
-                     rendered-battery (render-battery bbattery-state)
-                     out-obj [
-                              {:name "current" :instance "current" :full_text rendered-current-prog }
+                     rendered-date (->> ddate-state (render :date ) :out)
+                     rendered-wifi (->> wwifi-state (render :wifi ) :out)
+                     rendered-current-prog (->> pprog-state (render :selected ) :out)
+                     rendered-battery (->> bbattery-state (render :battery ) :out)
+                     out-obj [{:name "current" :instance "current" :full_text rendered-current-prog }
                               {:name "wifi" :instance "wifi" :full_text rendered-wifi }
                               {:name "battery" :instance "battery" :full_text rendered-battery }
                               {:name "time" :instance "time" :full_text rendered-date}]
@@ -195,6 +150,13 @@
                  (println out-final)))
              (<! (timeout my-timeout))
            (recur))))
+
+
+; (defn wifi-click-handler [my-timeout]
+;   (go-loop
+;     (<! (timeout my-timeout))
+;     (recur)))
+
 
 (defn -main [] 
   (update-date DATE-TIMEOUT)
