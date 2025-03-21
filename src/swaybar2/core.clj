@@ -63,7 +63,7 @@
            curr-state @state
            timeout (-> i (get "timeout"))
            now (System/currentTimeMillis)
-           data (if (> now (or (get-in curr-state [kkey :expires]) 0))
+           data (if (> now (get-in curr-state [kkey :expires] 0) )
                   (let [results (fetch-data kkey timeout)]
                       (swap! state assoc kkey results)
                       results)
