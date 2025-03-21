@@ -172,15 +172,15 @@
 (defmethod render :default [_ _]
   {:out "NOT AVAILABLE"})
 
-(defmulti fetch-data 
-  (fn [method _]
-    method))
 (def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing" "robots" "iPads" "socks" "dingleberry" "toenails" "lamp" "basket" "laughter" "pizza" "rabbits" "wasps" "bookshelves" "flags" "blankets" "probiotics" "vitamins" "bag" "remote" "soap" "shower" "printer" "video games" "Linux" "Al Capone" "anime" "capsules" "alcohol" "t-shirts" "nocturnal emissions"])
 
-(defmethod fetch-data :shellmock [_ timeout]
+(defmulti fetch-data 
+  (fn [method ]
+    method))
+
+
+(defmethod fetch-data :shellmock [_]
   (let [
-       now (System/currentTimeMillis)
-       expires-at (+ timeout now)
        shell-lines (->> (str (System/getenv "HOME") "/.zsh_history")
                         slurp 
                         clojure.string/split-lines 
@@ -189,27 +189,27 @@
        mock (generate-mock shell-lines)
        ]
 
-    {:expires expires-at
+    {
      :data {
             :mock mock 
             }}))
 
-(defmethod fetch-data :quote [_ timeout]
+(defmethod fetch-data :quote [_]
   (let [
-       now (System/currentTimeMillis)
-       expires-at (+ timeout now)
+       ;now (System/currentTimeMillis)
+       ;expires-at (+ timeout now)
        rint (->> quote-topics 
                    count
                    rand-int)
        qquote (generate-quote (get quote-topics rint))
        ]
 
-    {:expires expires-at
+    {
      :data {
             :quote qquote
             }}))
 
-(defmethod fetch-data :volume [_ timeout] 
+(defmethod fetch-data :volume [_] 
   (let [
         is-muted (-> 
                    (sh "pactl" "get-sink-mute" "@DEFAULT_SINK@") 
@@ -225,11 +225,11 @@
         volume-level (if (= "/" (get vol-info 5)) (get vol-info 4) (get vol-info 5))
         now (System/currentTimeMillis)
         ]
-     {:expires (+ now timeout)
+     {
       :data {:is-muted is-muted 
              :volume volume-level}}))
 
-(defmethod fetch-data :date [_ timeout]
+(defmethod fetch-data :date [_]
   (let [
           now (LocalDateTime/now)
           month (clojure.string/trim (str (.getMonth now)))
@@ -242,7 +242,7 @@
           now (System/currentTimeMillis)
           expire-time (+ now timeout)
           ] 
-    {:expires expire-time
+    {
      :data {
         :month month 
         :day-of-week day-of-week 
@@ -253,7 +253,7 @@
         :minute minute
         } }))
 
-(defmethod fetch-data :wifi [_ timeout]
+(defmethod fetch-data :wifi [_]
   (let [ 
         params (->> (sh "iw" "dev") :out (clojure.string/split-lines) (mapv clojure.string/trim))
         interface (-> params (get 5) (clojure.string/split #" ") last)
@@ -261,30 +261,26 @@
         iw-link (sh "iw" interface "link" )
         is-connected (not (nil? (clojure.string/index-of (sh "iw" interface "link") "Connected")))
         connect-status (if is-connected :connected :disconnected)
-        now (System/currentTimeMillis)
-        expire-time (+ now timeout)
         ]
-    {:expires expire-time
+    {
      :data {
             :ssid ssid 
             :connect-status connect-status }}))
 
-(defmethod fetch-data :selected [_ timeout]
+(defmethod fetch-data :selected [_] 
   (let [selected-prog (-> 
                         (sh "swaymsg" "-t" "get_tree") 
                         :out 
                         (json/read-str) 
                         (find-deep) 
                         (get "app_id"))
-        now (System/currentTimeMillis)
-        expire-time (+ now timeout)
         ]
-    {:expires expire-time
+    {
      :data 
      {
       :current-prog selected-prog}}))
 
-(defmethod fetch-data :battery [_ timeout]
+(defmethod fetch-data :battery [_]
   (let [
         bat-path "/sys/class/power_supply/BAT0"
         capacity (clojure.string/trim 
@@ -296,16 +292,14 @@
                  (clojure.string/lower-case) 
                  (clojure.string/replace #" " "") 
                  clojure.string/trim keyword)
-        now (System/currentTimeMillis)
-        expire-time (+ now timeout)
         ]
-    {:expires expire-time 
+    {
      :data 
      { 
       :capacity capacity :status status}}))
 
 
-(defmethod fetch-data :default [_ timeout]
+(defmethod fetch-data :default [_]
   {:data {}}
   )
 

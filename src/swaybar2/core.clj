@@ -65,10 +65,13 @@
            nname (get i "name")
            now (System/currentTimeMillis)
            data (if (> now (get-in curr-state [kkey :expires] 0) )
-                  (let [results (fetch-data kkey timeout)]
-                      (swap! state assoc kkey results)
+                  (let [results (fetch-data kkey)
+                        new-expires (+ now timeout)
+                        ]
+                      (swap! state assoc-in [kkey :data] results)
+                      (swap! state assoc-in [kkey :expires] new-expires)
                       results)
-                  (get-in curr-state [kkey]))
+                  (get-in curr-state [kkey :data]))
           rendered (render kkey (:data data))
           ; _ (spit "/home/tombert/dbg" "poop" :append true)
           out-obj {:name nname
