@@ -69,38 +69,29 @@
            now (System/currentTimeMillis)
            is-processing (get-in curr-state [kkey :processing] false)
            expire-time (get-in curr-state [kkey :expires] 0)
-           ;data (get-in curr-state [kkey :data])
-
-                        ;results (fetch-data kkey)
-           data (if (and (> now expire-time))
-                  (do 
-                    (if (and (not is-processing) is-async)
-                      (do
-                        (swap! state assoc-in [kkey :processing] true)
-                        (swap! state assoc-in [kkey :channel] (fetch-data kkey))
-                        (get-in curr-state [kkey :data])       
-                        )
+           old-channel (get-in curr-state [kkey :channel])
+           ch (if (and (not is-processing) (> now expire-time))
                       (let [
-                            results (fetch-data kkey)
-                            new-expires (+ now ttl)
-                            ] 
-                        (swap! state assoc-in [kkey :data] results)
-                        (swap! state assoc-in [kkey :expires] new-expires)
-                        results))) 
-                  
-                  (get-in curr-state [kkey :data]))
-           _ (when (and is-processing is-async)
-               (let [to-ch (timeout async-timeout)
-                     ch (get-in curr-state [kkey :channel])
-                     [v fin-chan] (alts!! [to-ch ch])
-                     ]
-                 (when (= ch fin-chan)
-                   (do 
-                     (swap! state assoc-in [kkey :processing] false)
-                     (swap! state assoc-in [kkey :data] v)
-                     (swap! state assoc-in [kkey :expires] (+ now ttl))))))
-          rendered (render kkey (:data data))
-          ; _ (spit "/home/tombert/dbg" "poop" :append true)
+                            ch (if is-async (fetch-data kkey) (go (fetch-data kkey)))
+                            ]
+                        (swap! state assoc-in [kkey :processing] true)
+                        (swap! state assoc-in [kkey :channel] ch)
+                        (swap! state assoc-in [kkey :expires] (+ ttl now))
+                        ;(get-in curr-state [kkey :data])       
+                        ch
+                        ) old-channel)
+           old-data (get-in curr-state [kkey :data])
+
+           poll-data (when (let [res (a/poll! ch) ]
+                       (if res 
+                         (do
+                           (swap! state assoc-in [kkey :processing] false)
+                           (swap! state assoc-in [kkey :data] res)
+                           res) 
+                         nil)))
+           data (or poll-data old-data)
+
+          rendered (if data (render kkey (:data data)) {:out ""} )
           out-obj {:name nname
                    :instance  nname
                    :background (get i "background" "#000000")
