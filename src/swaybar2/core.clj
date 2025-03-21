@@ -153,7 +153,6 @@
                             (json/write-str results) 
                             ",")
                  ] 
-             (spit "/home/tombert/dbg" (str module-map))
              (mouse-handler click-event (get-in module-map [click-event "click_program"]))
              (>! in-chan out-json)
              (<! (timeout my-timeout))
