@@ -32,30 +32,33 @@
                   :full "🟢"
                   })
 
-(def day-abbrev {
-                  "MONDAY" "Mon"
-                  "TUESDAY" "Tues"
-                  "WEDNESDAY" "Wed"
-                  "THURSDAY" "Thurs"
-                  "FRIDAY" "Fri"
-                  "SATURDAY" "Sat"
-                  "SUNDAY" "Sun"
-                  })
+(def day-abbrev 
+  {
+   "MONDAY" "Mon"
+   "TUESDAY" "Tues"
+   "WEDNESDAY" "Wed"
+   "THURSDAY" "Thurs"
+   "FRIDAY" "Fri"
+   "SATURDAY" "Sat"
+   "SUNDAY" "Sun"
+   })
 
-(def month-abbrev {
-                   "JANUARY" "Jan"
-                   "FEBRUARY" "Feb"
-                   "MARCH" "Mar"
-                   "APRIL" "Apr"
-                   "MAY" "May"
-                   "JUNE" "Jun"
-                   "JULY" "Jul"
-                   "AUGUST" "Aug"
-                   "SEPTEMBER" "Sep"
-                   "OCTOBER" "Oct"
-                   "NOVEMBER" "Nov"
-                   "DECEMBER" "Dec"
-                   })
+(def month-abbrev 
+  {
+   "JANUARY" "Jan"
+   "FEBRUARY" "Feb"
+   "MARCH" "Mar"
+   "APRIL" "Apr"
+   "MAY" "May"
+   "JUNE" "Jun"
+   "JULY" "Jul"
+   "AUGUST" "Aug"
+   "SEPTEMBER" "Sep"
+   "OCTOBER" "Oct"
+   "NOVEMBER" "Nov"
+   "DECEMBER" "Dec"
+   })
+
 (defn generate-quote [topic]
   (let [api-key open-ai-key
         body {:model "gpt-3.5-turbo"
@@ -87,22 +90,6 @@
                        :connect-timeout 3000})
         parsed (json/read-str (:body resp) :key-fn keyword)]
     (get-in parsed [:choices 0 :message :content])))
-; (defn generate-quote [topic]
-;   (let [api-key open-ai-key
-;         body {:model "gpt-3.5-turbo"
-;               :messages [{:role "system"
-;                           :content "You are a quote generator."}
-;                          {:role "user"
-;                           :content (str "Give me a unique inspirational quote involving " topic)}]}
-;         response (http/post "https://api.openai.com/v1/chat/completions"
-;                             {:headers {"Authorization" (str "Bearer " api-key)
-;                                        "Content-Type" "application/json"}
-;                              :body (json/write-str body)
-;                              :socket-timeout 3000
-;                              :conn-timeout 3000})
-;         parsed (json/read-str (:body response) :key-fn keyword)
-;         haiku (get-in parsed [:choices 0 :message :content])]
-;     haiku))
 
 (defn- find-deep [x]
   (cond
