@@ -25,6 +25,8 @@
 
 (def TIMEOUT-MS 50)
 
+(def BUFFER-SIZE 50)
+
 (defn force-graal-to-include-processbuilder []
   (doto (ProcessBuilder. ["true"])
     (.redirectOutput ProcessBuilder$Redirect/INHERIT)
@@ -124,7 +126,7 @@
           input-json (slurp json-path)
 
           input (json/read-str input-json)
-          in-chan (chan 20)
+          in-chan (chan BUFFER-SIZE)
           ]
       (force-graal-to-include-processbuilder)
       (renderer in-chan)
