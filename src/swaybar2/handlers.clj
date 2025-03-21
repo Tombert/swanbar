@@ -62,7 +62,7 @@
               :messages [{:role "system"
                           :content "You are a quote generator."}
                          {:role "user"
-                          :content (str "Give me a unique short inspirational quote involving " topic)}]}
+                          :content (str "Give me a unique medium-sized inspirational quote involving " topic " with an attribution to a fictional author whose name is a pun on " topic)}]}
         resp (hc/post "https://api.openai.com/v1/chat/completions"
                       {:headers {"Authorization" (str "Bearer " api-key)
                                  "Content-Type" "application/json"}
@@ -170,7 +170,7 @@
 (defmulti fetch-data 
   (fn [method _]
     method))
-(def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing"])
+(def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing" "robots" "iPads" "socks" "laughter" "pizza" "rabbits" "wasps" "bookshelves" "flags" "blankets" "probiotics" "vitamins"])
 
 (defmethod fetch-data :quote [_ timeout]
   (let [
