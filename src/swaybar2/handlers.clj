@@ -60,21 +60,14 @@
    "DECEMBER" "Dec"
    })
 
-(defn generate-quote [topic]
+(defn call-gpt [prompt role]
   (let [return-chan (chan)
         api-key open-ai-key
         body {:model "gpt-3.5-turbo"
               :messages [{:role "system"
-                          :content "You are a quote generator."}
+                          :content role}
                          {:role "user"
-                          :content (str "Give me a unique medium-sized inspirational quote involving " topic " with an attribution to a fictional author whose name is a pun on " topic)}]}]
-        ; resp (hc/post "https://api.openai.com/v1/chat/completions"
-        ;               {:async true
-        ;                :headers {"Authorization" (str "Bearer " api-key)
-        ;                          "Content-Type" "application/json"}
-        ;                :body (json/write-str body)
-        ;                :socket-timeout 3000
-        ;                :connect-timeout 3000})
+                          :content prompt}]}]
     (hc/post "https://api.openai.com/v1/chat/completions"
              {:async? true
               :headers {"Authorization" (str "Bearer " api-key)
@@ -87,7 +80,10 @@
                      parsed (json/read-str (:body resp) :key-fn keyword)
                      results (get-in parsed [:choices 0 :message :content])
                      ]
-                 (a/put! return-chan results))))
+                 (a/put! return-chan results)))
+             (fn [err]
+               (a/put! return-chan :error)
+               ))
     return-chan))
 
 (defn generate-mock [shells]
@@ -211,14 +207,15 @@
 (defmethod fetch-data :quote [_]
   (go 
     (let [
-          ;now (System/currentTimeMillis)
-          ;expires-at (+ timeout now)
           rint (->> quote-topics 
                     count
                     rand-int)
-          quote-chan (generate-quote (get quote-topics rint))
-          qquote (<! quote-chan)
-          ]
+          topic (get quote-topics rint)
+
+          prompt (str "Give me a unique medium-sized inspirational quote involving " topic " with an attribution to a fictional author whose name is a pun on " topic)
+          role "You are a quote generator"
+          quote-chan (call-gpt prompt role)
+          qquote (<! quote-chan)]
           {
            :data {
                   :quote qquote

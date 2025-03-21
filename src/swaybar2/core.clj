@@ -60,45 +60,67 @@
 
 (defn- do-all-handler [i]
   (go
-     (let [kkey (-> i (get "name") keyword)
-           curr-state @state
-           ttl (-> i (get "ttl" 0))
-           nname (get i "name")
-           is-async (get i "async" false)
-           async-timeout (get i "async_timeout" 0)
-           now (System/currentTimeMillis)
-           is-processing (get-in curr-state [kkey :processing] false)
-           expire-time (get-in curr-state [kkey :expires] 0)
-           old-channel (get-in curr-state [kkey :channel])
-           ch (if (and (not is-processing) (> now expire-time))
-                      (let [
-                            ch (if is-async (fetch-data kkey) (go (fetch-data kkey)))
-                            ]
-                        (swap! state assoc-in [kkey :processing] true)
-                        (swap! state assoc-in [kkey :channel] ch)
-                        (swap! state assoc-in [kkey :expires] (+ ttl now))
-                        ;(get-in curr-state [kkey :data])       
-                        ch
-                        ) old-channel)
-           old-data (get-in curr-state [kkey :data])
+    (let 
+      [kkey (-> i (get "name") keyword)
+       curr-state @state
+       ttl (-> i (get "ttl" 0))
+       nname (get i "name")
+       is-async (get i "async" false)
 
-           poll-data (when (let [res (a/poll! ch) ]
-                       (if res 
-                         (do
-                           (swap! state assoc-in [kkey :processing] false)
-                           (swap! state assoc-in [kkey :data] res)
-                           res) 
-                         nil)))
-           data (or poll-data old-data)
+       ; Don't love hard-coding this.  Might need to figure out
+       ; a good way to avoid this. 
+       async-timeout (get i "async_timeout" 1000)
+       now (System/currentTimeMillis)
+       is-processing (get-in curr-state [kkey :processing] false)
+       expire-time (get-in curr-state [kkey :expires] 0)
+       old-channel (get-in curr-state [kkey :channel])
+       started (get-in curr-state [kkey :started] now)
+       ch (if (and (not is-processing) (> now expire-time))
+            (let [
+                  ch (if is-async (fetch-data kkey) (go (fetch-data kkey)))
+                  ]
+              (swap! state
+                     #(-> %
+                          (assoc-in [kkey :processing] true)
+                          (assoc-in [kkey :channel] ch)
+                          (assoc-in [kkey :expires] (+ ttl now))
+                          (assoc-in [kkey :started] now)))
+              ch) 
+            old-channel)
+       old-data (get-in curr-state [kkey :data])
 
-          rendered (if data (render kkey (:data data)) {:out ""} )
-          out-obj {:name nname
-                   :instance  nname
-                   :background (get i "background" "#000000")
-                   :color (get i "color" "#FFFFFF")
-                   :full_text (:out rendered)}
-          ]
-       out-obj)))
+       poll-data (when 
+                   (let [res (a/poll! ch) ]
+                     (if res 
+                       (do
+                         (swap! state
+                                #(-> %
+                                     (assoc-in [kkey :processing] false)
+                                     (assoc-in [kkey :data] res)))           
+                         
+                         res) 
+                       (when (and is-async is-processing)
+                         (let [delta (- now started)]
+                           (when (> delta async-timeout)
+                             (println delta)
+                             (swap! state
+                                #(-> %
+                                     (assoc-in [kkey :processing] false)
+                                     (assoc-in [kkey :expires] 0)))
+                             ; force it to restart if it timed out
+                             nil))))))
+       data (or poll-data old-data)
+
+       rendered (if data 
+                  (render kkey (:data data)) 
+                  {:out ""} )
+       out-obj {:name nname
+                :instance  nname
+                :background (get i "background" "#000000")
+                :color (get i "color" "#FFFFFF")
+                :full_text (:out rendered)}
+       ]
+      out-obj)))
 
 (defn renderer [input-chan]
   (go-loop []

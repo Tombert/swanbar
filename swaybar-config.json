@@ -4,7 +4,7 @@
 	"modules" : [
 		{
 			"async": true,
-			"async_timeout": 200,
+			"async_timeout": 1000,
 			"name": "quote",
 			"ttl": 480000,
 			"color": "#EEEEEE",
