@@ -193,7 +193,7 @@
   (let [
        now (System/currentTimeMillis)
        expires-at (+ timeout now)
-       shell-lines (->> "/home/tombert/.zsh_history" 
+       shell-lines (->> (str (System/getenv "HOME") "/.zsh_history")
                         slurp 
                         clojure.string/split-lines 
                         (take-last 15) 
