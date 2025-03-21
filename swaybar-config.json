@@ -1,7 +1,7 @@
 [
   {
 	  "name": "quote",
-	  "timeout": 240000,
+	  "timeout": 480000,
 	  "color": "#EEEEEE",
 	  "background": "#222222"
   },

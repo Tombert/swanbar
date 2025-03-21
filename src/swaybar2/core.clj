@@ -61,7 +61,8 @@
 (defn- do-all-handler [i]
      (let [kkey (-> i (get "name") keyword)
            curr-state @state
-           timeout (-> i (get "timeout"))
+           timeout (-> i (get "timeout" 0))
+           nname (get i "name")
            now (System/currentTimeMillis)
            data (if (> now (get-in curr-state [kkey :expires] 0) )
                   (let [results (fetch-data kkey timeout)]
@@ -70,8 +71,8 @@
                   (get-in curr-state [kkey]))
           rendered (render kkey (:data data))
           ; _ (spit "/home/tombert/dbg" "poop" :append true)
-          out-obj {:name (get i "name") 
-                   :instance (get i "name") 
+          out-obj {:name nname
+                   :instance  nname
                    :background (get i "background" "#000000")
                    :color (get i "color" "#FFFFFF")
                    :full_text (:out rendered)}
