@@ -1,5 +1,9 @@
 [
   {
+	  "name": "quote",
+	  "timeout": 240000
+  },
+  {
 	  "name": "volume",
 	  "timeout": 0 
   },

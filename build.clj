@@ -12,8 +12,11 @@
 (defn uber [_]
   (clean nil)
   (b/compile-clj {:basis basis
-                  :src-dirs ["src"]
+                  :src-dirs ["src" "resources"]
                   :class-dir class-dir})
+
+  (b/copy-dir {:src-dirs ["resources"]
+               :target-dir class-dir})
   (b/uber {:class-dir class-dir
            :uber-file jar-file
            :basis basis

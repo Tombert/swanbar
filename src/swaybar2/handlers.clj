@@ -11,12 +11,16 @@
         ;[clojure.string :only split-lines]
         )
   (:require 
+    [hato.client :as hc]
     [clojure.data.json :as json]
+    ;[clj-http.client :as http]
     [clojure.core.async
              :as a
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]]))
 
+
+(def open-ai-key (clojure.string/trim (slurp (str (System/getenv "HOME") "/.open-ai-key"))))
 
 (def wifi-map {:connected  "📶"
                :disconnected "❌"
@@ -52,7 +56,38 @@
                    "NOVEMBER" "Nov"
                    "DECEMBER" "Dec"
                    })
+(defn generate-quote [topic]
+  (let [api-key open-ai-key
+        body {:model "gpt-3.5-turbo"
+              :messages [{:role "system"
+                          :content "You are a quote generator."}
+                         {:role "user"
+                          :content (str "Give me a unique short inspirational quote involving " topic)}]}
+        resp (hc/post "https://api.openai.com/v1/chat/completions"
+                      {:headers {"Authorization" (str "Bearer " api-key)
+                                 "Content-Type" "application/json"}
+                       :body (json/write-str body)
+                       :socket-timeout 3000
+                       :connect-timeout 3000})
+        parsed (json/read-str (:body resp) :key-fn keyword)]
+    (get-in parsed [:choices 0 :message :content])))
 
+; (defn generate-quote [topic]
+;   (let [api-key open-ai-key
+;         body {:model "gpt-3.5-turbo"
+;               :messages [{:role "system"
+;                           :content "You are a quote generator."}
+;                          {:role "user"
+;                           :content (str "Give me a unique inspirational quote involving " topic)}]}
+;         response (http/post "https://api.openai.com/v1/chat/completions"
+;                             {:headers {"Authorization" (str "Bearer " api-key)
+;                                        "Content-Type" "application/json"}
+;                              :body (json/write-str body)
+;                              :socket-timeout 3000
+;                              :conn-timeout 3000})
+;         parsed (json/read-str (:body response) :key-fn keyword)
+;         haiku (get-in parsed [:choices 0 :message :content])]
+;     haiku))
 
 (defn- find-deep [x]
   (cond
@@ -73,6 +108,9 @@
   (fn [method _]
     method))
 
+
+(defmethod render :quote [_ qquote]
+  {:out (str "Inspiration: " (:quote qquote))})
 
 (defmethod render :volume [_ volume]
    (let [
@@ -95,7 +133,10 @@
         symb (->> wifi :connect-status (get wifi-map))
         ssid (->> wifi :ssid )
         ]
-   {:out (str ssid " " symb )}))
+   ;{:out (str ssid " " symb )}
+   {:out (str symb )}
+   
+   ))
 
 (defmethod render :battery [_ battery]
   (let [capacity (:capacity battery)
@@ -129,6 +170,19 @@
 (defmulti fetch-data 
   (fn [method _]
     method))
+(def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing"])
+
+(defmethod fetch-data :quote [_ timeout]
+  (let [
+       now (System/currentTimeMillis)
+       expires-at (+ timeout now)
+       qquote (generate-quote (first (shuffle quote-topics)))
+       ]
+
+    {:expires expires-at
+     :data {
+            :quote qquote
+            }}))
 
 (defmethod fetch-data :volume [_ timeout] 
   (let [

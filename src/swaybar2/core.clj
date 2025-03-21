@@ -114,6 +114,7 @@
        ))
 
 (defn -main [& args]
+  (System/setProperty "org.apache.commons.logging.Log" "org.apache.commons.logging.impl.NoOpLog")
   (let [executor-var (ns-resolve 'clojure.core.async.impl.dispatch 'EXECUTOR)]
     (when executor-var
       (alter-var-root executor-var
@@ -121,6 +122,7 @@
     (let [
           json-path (if (empty? args)  "swaybar-config.json" (first args))
           input-json (slurp json-path)
+
           input (json/read-str input-json)
           in-chan (chan 20)
           ]
