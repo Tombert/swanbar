@@ -320,15 +320,15 @@
     (.redirectError pb ProcessBuilder$Redirect/DISCARD)
     (.start pb))) 
 
-(defmulti mouse-handler (fn [a] a))
+(defmulti mouse-handler (fn [a program] a))
 
-(defmethod mouse-handler :wifi [_]
-  (run-detached "iwgtk"))
+(defmethod mouse-handler :wifi [_ program]
+  (run-detached program))
 
-(defmethod mouse-handler :volume [_]
-  (run-detached "pavucontrol"))
+(defmethod mouse-handler :volume [_ program]
+  (run-detached program))
 
-(defmethod mouse-handler :default [_]
+(defmethod mouse-handler :default [_ program]
   
   )
 

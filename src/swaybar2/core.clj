@@ -97,7 +97,7 @@
                                 #(-> %
                                      (assoc-in [kkey :processing] false)
                                      (assoc-in [kkey :data] res)))           
-                         
+
                          res) 
                        (when (and is-async is-processing)
                          (let [delta (- now started)]
@@ -128,7 +128,7 @@
       (println msg))
     (recur)))
 
-(defn do-all [my-timeout in-chan events]
+(defn do-all [my-timeout in-chan events module-map]
   (>!! in-chan "{\"version\":1, \"click_events\":true}")
   (>!! in-chan "[")
   (>!! in-chan "[],")
@@ -137,7 +137,8 @@
                  input (read-stdin-if-ready)
                  click-event (parse-std input)
                  chs (vec (for [i events]
-                            (do-all-handler i)))
+                            (do
+                              (do-all-handler i))))
                  results (loop [chs chs
                                 acc []] 
                            (do 
@@ -150,8 +151,10 @@
                                    (conj acc res))))))
                  out-json (str 
                             (json/write-str results) 
-                            ",")] 
-             (mouse-handler click-event)
+                            ",")
+                 ] 
+             (spit "/home/tombert/dbg" (str module-map))
+             (mouse-handler click-event (get-in module-map [click-event "click_program"]))
              (>! in-chan out-json)
              (<! (timeout my-timeout))
              (recur))))
@@ -174,12 +177,18 @@
 
           in-obj (json/read-str input-json)
           input (get-in in-obj ["modules"])
+          module-map (->> 
+                       input 
+                       (map 
+                         (fn [i] 
+                           [(keyword (get i "name")) i]))
+                       (into {}))
           my-timeout (get-in in-obj ["poll_time"])
 
           in-chan (chan BUFFER-SIZE)
           ]
       (force-graal-to-include-processbuilder)
       (renderer in-chan)
-      (do-all my-timeout in-chan input)
+      (do-all my-timeout in-chan input module-map)
       (<!! (chan)))))
 

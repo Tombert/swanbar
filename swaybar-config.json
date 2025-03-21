@@ -12,7 +12,8 @@
 		},
 		{
 			"name": "volume",
-			"ttl": 0 
+			"ttl": 0, 
+			"click_program": "pavucontrol"
 		},
 		{
 			"name": "selected",
@@ -20,7 +21,8 @@
 		},
 		{
 			"name": "wifi",
-			"ttl": 0 
+			"ttl": 0,
+			"click_program": "iwgtk"
 		},
 		{
 			"name": "battery",
