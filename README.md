@@ -14,7 +14,7 @@ This is a basic multimethod framework which is fairly customizable.
 
 For any module you want to create, you need to make implement two methods: `fetchdata` and `render`.  
 
-As of this writing, these have to be blocking (async coming soon), and at minimum must return a `:data` object. 
+`render` *must* be blocking, however fetchdata can be asynchronous.  Perform your non-blocking stuff in a fetch-data block if possible. 
 
 Your implementation should look something like 
 
@@ -24,9 +24,13 @@ Your implementation should look something like
 )
 ```
 
-This object can be arbitrary, it just needs to have all the information you care about for rendering. 
+This object can be arbitrary, it just needs to have all the information you care about for rendering. If you would like to do an async operation (e.g. call a web API that you don't want to block other stuff), return the same object on a channel, e.g.:
 
-The `timeout` variable is used for memoizing and expiration.  If you would like to have somethig only run on certain intervals (e.g. something that calls a web API that's rate-limited or expensive), you can also add a key `:expires` to the method with the expiration epoch time in milliseconds. 
+```
+(defmethod fetch-data :my-module [_ timeout] 
+    (go {:data {}})
+)
+```
 
 
 Your render function should look something like this: 
@@ -44,20 +48,32 @@ You will also need a JSON configuration file.
 The file will be one big ol' array of objects.  
 
 ```
-[
-  {
-	  "name": "quote",
-	  "timeout": 480000,
-	  "color": "#EEEEEE",
-	  "background": "#222222"
-  },
-  {
-	  "name": "volume",
-	  "timeout": 0 
-  }
+{
+	"poll_time" : 50,
+	"modules" : [
+		{
+			"async": true,
+			"async_timeout": 1000,
+			"name": "quote",
+			"ttl": 480000,
+			"color": "#EEEEEE",
+			"background": "#222222"
+		},
+		{
+			"name": "volume",
+			"ttl": 0, 
+			"click_program": "pavucontrol"
+		}
+	]
+}
+
 ```
 
 All fields other than `name` are optional. `name` *must* match the keyword used in your multimethods. 
+
+Async functions must be explicitly labels (for now). The `async_timeout` parameter is the amount of time we will wait for a job before killing it and retrying. 
+
+`ttl` is minimum the amount of time you want to wait between calls to your `fetch_data` function.  This is useful if you are, for example, making a call to an HTTP api that you do not want to hit on every iteration of the loop. Look at the `:quote` `fetch-data` function for an example of where this is used. 
 
 You must then pass in this JSON as a parameter when launching the swaybar. 
 
