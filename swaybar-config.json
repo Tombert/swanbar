@@ -1,7 +1,9 @@
 [
   {
 	  "name": "quote",
-	  "timeout": 240000
+	  "timeout": 240000,
+	  "color": "#EEEEEE",
+	  "background": "#222222"
   },
   {
 	  "name": "volume",

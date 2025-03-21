@@ -1,3 +1,4 @@
+
 (ns swaybar2.handlers
   (:gen-class)
   (:import [java.time LocalDateTime]
@@ -197,7 +198,10 @@
   (let [
        now (System/currentTimeMillis)
        expires-at (+ timeout now)
-       qquote (generate-quote (get quote-topics (rand-int (count quote-topics))))
+       rint (->> quote-topics 
+                   count
+                   rand-int)
+       qquote (generate-quote (get quote-topics rint))
        ]
 
     {:expires expires-at

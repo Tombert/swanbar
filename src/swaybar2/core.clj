@@ -70,7 +70,11 @@
                   (get-in curr-state [kkey]))
           rendered (render kkey (:data data))
           ; _ (spit "/home/tombert/dbg" "poop" :append true)
-          out-obj {:name (get i "name") :instance (get i "name") :full_text (:out rendered)}
+          out-obj {:name (get i "name") 
+                   :instance (get i "name") 
+                   :background (get i "background" "#000000")
+                   :color (get i "color" "#FFFFFF")
+                   :full_text (:out rendered)}
           ]
        out-obj))
 
