@@ -72,6 +72,21 @@
         parsed (json/read-str (:body resp) :key-fn keyword)]
     (get-in parsed [:choices 0 :message :content])))
 
+(defn generate-mock [shells]
+  (let [api-key open-ai-key
+        body {:model "gpt-3.5-turbo"
+              :messages [{:role "system"
+                          :content "You are an insult generator."}
+                         {:role "user"
+                          :content (str "Roast and make fun of this shell history with a short quip: " shells)}]}
+        resp (hc/post "https://api.openai.com/v1/chat/completions"
+                      {:headers {"Authorization" (str "Bearer " api-key)
+                                 "Content-Type" "application/json"}
+                       :body (json/write-str body)
+                       :socket-timeout 3000
+                       :connect-timeout 3000})
+        parsed (json/read-str (:body resp) :key-fn keyword)]
+    (get-in parsed [:choices 0 :message :content])))
 ; (defn generate-quote [topic]
 ;   (let [api-key open-ai-key
 ;         body {:model "gpt-3.5-turbo"
@@ -108,9 +123,11 @@
   (fn [method _]
     method))
 
-
 (defmethod render :quote [_ qquote]
-  {:out (str "Inspiration: " (:quote qquote))})
+  {:out (str (:quote qquote))})
+
+(defmethod render :shellmock [_ mock]
+  {:out (str (:mock mock))})
 
 (defmethod render :volume [_ volume]
    (let [
@@ -172,11 +189,28 @@
     method))
 (def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing" "robots" "iPads" "socks" "laughter" "pizza" "rabbits" "wasps" "bookshelves" "flags" "blankets" "probiotics" "vitamins"])
 
+(defmethod fetch-data :shellmock [_ timeout]
+  (let [
+       now (System/currentTimeMillis)
+       expires-at (+ timeout now)
+       shell-lines (->> "/home/tombert/.zsh_history" 
+                        slurp 
+                        clojure.string/split-lines 
+                        (take-last 15) 
+                        (clojure.string/join "\n"))
+       mock (generate-mock shell-lines)
+       ]
+
+    {:expires expires-at
+     :data {
+            :mock mock 
+            }}))
+
 (defmethod fetch-data :quote [_ timeout]
   (let [
        now (System/currentTimeMillis)
        expires-at (+ timeout now)
-       qquote (generate-quote (first (shuffle quote-topics)))
+       qquote (generate-quote (get quote-topics (rand-int (count quote-topics))))
        ]
 
     {:expires expires-at
