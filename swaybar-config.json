@@ -1,28 +1,34 @@
-[
-  {
-	  "name": "quote",
-	  "timeout": 480000,
-	  "color": "#EEEEEE",
-	  "background": "#222222"
-  },
-  {
-	  "name": "volume",
-	  "timeout": 0 
-  },
-  {
-	  "name": "selected",
-	  "timeout": 0 
-  },
-  {
-	  "name": "wifi",
-	  "timeout": 0 
-  },
-  {
-	  "name": "battery",
-	  "timeout": 0 
-  },
-  {
-	  "name": "date",
-	  "timeout": 0 
-  }
-]
+
+{
+	"poll_time" : 50,
+	"modules" : [
+		{
+			"async": true,
+			"async_timeout": 200,
+			"name": "quote",
+			"ttl": 480000,
+			"color": "#EEEEEE",
+			"background": "#222222"
+		},
+		{
+			"name": "volume",
+			"ttl": 0 
+		},
+		{
+			"name": "selected",
+			"ttl": 0 
+		},
+		{
+			"name": "wifi",
+			"ttl": 0 
+		},
+		{
+			"name": "battery",
+			"ttl": 0 
+		},
+		{
+			"name": "date",
+			"ttl": 0 
+		}
+	]
+}

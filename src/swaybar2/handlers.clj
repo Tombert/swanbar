@@ -61,20 +61,34 @@
    })
 
 (defn generate-quote [topic]
-  (let [api-key open-ai-key
+  (let [return-chan (chan)
+        api-key open-ai-key
         body {:model "gpt-3.5-turbo"
               :messages [{:role "system"
                           :content "You are a quote generator."}
                          {:role "user"
-                          :content (str "Give me a unique medium-sized inspirational quote involving " topic " with an attribution to a fictional author whose name is a pun on " topic)}]}
-        resp (hc/post "https://api.openai.com/v1/chat/completions"
-                      {:headers {"Authorization" (str "Bearer " api-key)
-                                 "Content-Type" "application/json"}
-                       :body (json/write-str body)
-                       :socket-timeout 3000
-                       :connect-timeout 3000})
-        parsed (json/read-str (:body resp) :key-fn keyword)]
-    (get-in parsed [:choices 0 :message :content])))
+                          :content (str "Give me a unique medium-sized inspirational quote involving " topic " with an attribution to a fictional author whose name is a pun on " topic)}]}]
+        ; resp (hc/post "https://api.openai.com/v1/chat/completions"
+        ;               {:async true
+        ;                :headers {"Authorization" (str "Bearer " api-key)
+        ;                          "Content-Type" "application/json"}
+        ;                :body (json/write-str body)
+        ;                :socket-timeout 3000
+        ;                :connect-timeout 3000})
+    (hc/post "https://api.openai.com/v1/chat/completions"
+             {:async? true
+              :headers {"Authorization" (str "Bearer " api-key)
+                        "Content-Type" "application/json"}
+              :body (json/write-str body)
+              :socket-timeout 3000
+              :connect-timeout 3000} 
+             (fn [resp]
+               (let [
+                     parsed (json/read-str (:body resp) :key-fn keyword)
+                     results (get-in parsed [:choices 0 :message :content])
+                     ]
+                 (a/put! return-chan results))))
+    return-chan))
 
 (defn generate-mock [shells]
   (let [api-key open-ai-key
@@ -195,19 +209,20 @@
             }}))
 
 (defmethod fetch-data :quote [_]
-  (let [
-       ;now (System/currentTimeMillis)
-       ;expires-at (+ timeout now)
-       rint (->> quote-topics 
-                   count
-                   rand-int)
-       qquote (generate-quote (get quote-topics rint))
-       ]
-
-    {
-     :data {
-            :quote qquote
-            }}))
+  (go 
+    (let [
+          ;now (System/currentTimeMillis)
+          ;expires-at (+ timeout now)
+          rint (->> quote-topics 
+                    count
+                    rand-int)
+          quote-chan (generate-quote (get quote-topics rint))
+          qquote (<! quote-chan)
+          ]
+          {
+           :data {
+                  :quote qquote
+                  }})))
 
 (defmethod fetch-data :volume [_] 
   (let [
@@ -240,7 +255,6 @@
           ssecond  (.getSecond now)
           minute  (.getMinute now)
           now (System/currentTimeMillis)
-          expire-time (+ now timeout)
           ] 
     {
      :data {

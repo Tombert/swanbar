@@ -23,7 +23,7 @@
 
 (def state (atom {}))
 
-(def TIMEOUT-MS 50)
+;(def TIMEOUT-MS 50)
 
 (def BUFFER-SIZE 50)
 
@@ -59,19 +59,46 @@
       :else :nothing)))
 
 (defn- do-all-handler [i]
+  (go
      (let [kkey (-> i (get "name") keyword)
            curr-state @state
-           timeout (-> i (get "timeout" 0))
+           ttl (-> i (get "ttl" 0))
            nname (get i "name")
+           is-async (get i "async" false)
+           async-timeout (get i "async_timeout" 0)
            now (System/currentTimeMillis)
-           data (if (> now (get-in curr-state [kkey :expires] 0) )
-                  (let [results (fetch-data kkey)
-                        new-expires (+ now timeout)
-                        ]
-                      (swap! state assoc-in [kkey :data] results)
-                      (swap! state assoc-in [kkey :expires] new-expires)
-                      results)
+           is-processing (get-in curr-state [kkey :processing] false)
+           expire-time (get-in curr-state [kkey :expires] 0)
+           ;data (get-in curr-state [kkey :data])
+
+                        ;results (fetch-data kkey)
+           data (if (and (> now expire-time))
+                  (do 
+                    (if (and (not is-processing) is-async)
+                      (do
+                        (swap! state assoc-in [kkey :processing] true)
+                        (swap! state assoc-in [kkey :channel] (fetch-data kkey))
+                        (get-in curr-state [kkey :data])       
+                        )
+                      (let [
+                            results (fetch-data kkey)
+                            new-expires (+ now ttl)
+                            ] 
+                        (swap! state assoc-in [kkey :data] results)
+                        (swap! state assoc-in [kkey :expires] new-expires)
+                        results))) 
+                  
                   (get-in curr-state [kkey :data]))
+           _ (when (and is-processing is-async)
+               (let [to-ch (timeout async-timeout)
+                     ch (get-in curr-state [kkey :channel])
+                     [v fin-chan] (alts!! [to-ch ch])
+                     ]
+                 (when (= ch fin-chan)
+                   (do 
+                     (swap! state assoc-in [kkey :processing] false)
+                     (swap! state assoc-in [kkey :data] v)
+                     (swap! state assoc-in [kkey :expires] (+ now ttl))))))
           rendered (render kkey (:data data))
           ; _ (spit "/home/tombert/dbg" "poop" :append true)
           out-obj {:name nname
@@ -80,7 +107,7 @@
                    :color (get i "color" "#FFFFFF")
                    :full_text (:out rendered)}
           ]
-       out-obj))
+       out-obj)))
 
 (defn renderer [input-chan]
   (go-loop []
@@ -97,7 +124,7 @@
                  input (read-stdin-if-ready)
                  click-event (parse-std input)
                  chs (vec (for [i events]
-                            (go (do-all-handler i))))
+                            (do-all-handler i)))
                  results (loop [chs chs
                                 acc []] 
                            (do 
@@ -112,7 +139,6 @@
                             (json/write-str results) 
                             ",")] 
              (mouse-handler click-event)
-             ;(println out-json)
              (>! in-chan out-json)
              (<! (timeout my-timeout))
              (recur))))
@@ -133,11 +159,14 @@
           json-path (if (empty? args)  "swaybar-config.json" (first args))
           input-json (slurp json-path)
 
-          input (json/read-str input-json)
+          in-obj (json/read-str input-json)
+          input (get-in in-obj ["modules"])
+          my-timeout (get-in in-obj ["poll_time"])
+
           in-chan (chan BUFFER-SIZE)
           ]
       (force-graal-to-include-processbuilder)
       (renderer in-chan)
-      (do-all TIMEOUT-MS in-chan input)
+      (do-all my-timeout in-chan input)
       (<!! (chan)))))
 
