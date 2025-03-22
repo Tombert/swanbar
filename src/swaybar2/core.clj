@@ -98,24 +98,32 @@
        new-state (or n1 curr-state)
        old-data (get-in new-state [kkey :data])
 
-       poll-data  (let [res (a/poll! ch) ]
-                    (if res 
-                      (do
-                        (swap! state
-                               #(-> %
-                                    (assoc-in [kkey :processing] false)
-                                    (assoc-in [kkey :data] res)))           
-                        res) 
-                      (when (and is-async is-processing)
-                        (let [delta (.minus now started)]
-                          (when (> (.compareTo delta async-timeout) 0)
+       [poll-data n2] (let [res (a/poll! ch) ]
+                        (if res 
+                          (let [
+                                nstate (-> new-state 
+                                           (assoc-in [kkey :processing] false)
+                                           (assoc-in [kkey :data] res)) ]
                             (swap! state
                                    #(-> %
                                         (assoc-in [kkey :processing] false)
-                                        (assoc-in [kkey :expires] (Duration/ofNanos 0))))
-                            nil)))))
-       data (or poll-data old-data)
+                                        (assoc-in [kkey :data] res)))           
+                            [res nstate]) 
+                          (when (and is-async is-processing)
+                            (let [delta (.minus now started)]
+                              (when (> (.compareTo delta async-timeout) 0)
+                                (let [
+                                      nstate (-> new-state
+                                                 (assoc-in [kkey :processing] false)
+                                                 (assoc-in [kkey :expires] (Duration/ofNanos 0)))] 
 
+                                  (swap! state
+                                         #(-> %
+                                              (assoc-in [kkey :processing] false)
+                                              (assoc-in [kkey :expires] (Duration/ofNanos 0))))
+                                [nil nstate]))))))
+       data (or poll-data old-data)
+       new-state-2 (or n2 new-state)
        rendered (if data 
                   (render kkey (:data data)) 
                   {:out ""} )
