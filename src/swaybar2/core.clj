@@ -98,7 +98,7 @@
        new-state (or n1 curr-state)
        old-data (get-in new-state [kkey :data])
 
-       [poll-data n2] (let [res (a/poll! ch) ]
+       {:keys [poll-data n2]} (let [res (a/poll! ch) ]
                         (if res 
                           (let [
                                 nstate (-> new-state 
@@ -108,7 +108,7 @@
                                    #(-> %
                                         (assoc-in [kkey :processing] false)
                                         (assoc-in [kkey :data] res)))           
-                            [res nstate]) 
+                            {:poll-data res :n2 nstate}) 
                           (when (and is-async is-processing)
                             (let [delta (.minus now started)]
                               (when (> (.compareTo delta async-timeout) 0)
@@ -121,7 +121,7 @@
                                          #(-> %
                                               (assoc-in [kkey :processing] false)
                                               (assoc-in [kkey :expires] (Duration/ofNanos 0))))
-                                [nil nstate]))))))
+                                {:poll-data nil :n2 nstate}))))))
        data (or poll-data old-data)
        new-state-2 (or n2 new-state)
        rendered (if data 
