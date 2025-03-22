@@ -132,13 +132,13 @@
   (>!! in-chan "{\"version\":1, \"click_events\":true}")
   (>!! in-chan "[")
   (>!! in-chan "[],")
-  (go-loop []
+  (go-loop [my-state state]
            (let [
                  input (read-stdin-if-ready)
                  click-event (parse-std input)
                  chs (vec (for [i events]
                             (do
-                              (do-all-handler i @state))))
+                              (do-all-handler i @my-state))))
                  results (loop [chs chs
                                 acc []] 
                            (do 
@@ -156,7 +156,7 @@
              (mouse-handler click-event (get-in module-map [click-event "click_program"]))
              (>! in-chan out-json)
              (<! (timeout my-timeout))
-             (recur))))
+             (recur my-state))))
 (defn- args-to-keys [args]
   (->> args
        (map clojure.string/trim)
