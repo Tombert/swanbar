@@ -79,7 +79,7 @@
                        (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
-       ch (if (and (not is-processing) (pos? (.compareTo now expire-time)))
+       ch-p (when (and (not is-processing) (pos? (.compareTo now expire-time)))
             (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) ]
               (swap! state
                      #(-> %
@@ -88,27 +88,27 @@
                           (assoc-in [kkey :expires] (.plus now ttl))
                           (assoc-in [kkey :started] now)))
               ch) 
-            old-channel)
+            )
+       ch (or ch-p old-channel)
        old-data (get-in curr-state [kkey :data])
 
-       poll-data (when 
-                   (let [res (a/poll! ch) ]
-                     (if res 
-                       (do
-                         (swap! state
-                                #(-> %
-                                     (assoc-in [kkey :processing] false)
-                                     (assoc-in [kkey :data] res)))           
-                         res) 
-                       (when (and is-async is-processing)
-                         (let [delta (.minus now started)]
-                           (when (> (.compareTo delta async-timeout) 0)
-                             (swap! state
-                                #(-> %
-                                     (assoc-in [kkey :processing] false)
-                                     (assoc-in [kkey :expires] (Duration/ofNanos 0))))
-                             ; force it to restart if it timed out
-                             nil))))))
+       poll-data  (let [res (a/poll! ch) ]
+                    (if res 
+                      (do
+                        (swap! state
+                               #(-> %
+                                    (assoc-in [kkey :processing] false)
+                                    (assoc-in [kkey :data] res)))           
+                        res) 
+                      (when (and is-async is-processing)
+                        (let [delta (.minus now started)]
+                          (when (> (.compareTo delta async-timeout) 0)
+                            (swap! state
+                                   #(-> %
+                                        (assoc-in [kkey :processing] false)
+                                        (assoc-in [kkey :expires] (Duration/ofNanos 0))))
+                            ; force it to restart if it timed out
+                            nil)))))
        data (or poll-data old-data)
 
        rendered (if data 
@@ -120,7 +120,7 @@
                 :color (get i "color" "#FFFFFF")
                 :full_text (:out rendered)}
        ]
-      out-obj)))
+      out-obj )))
 
 (defn renderer [input-chan]
   (go-loop []
@@ -140,7 +140,7 @@
                             (do
                               (do-all-handler i @my-state))))
                  results (loop [chs chs
-                                acc []] 
+                                acc [] ] 
                            (do 
                              (if (empty? chs)
                                (do acc)
@@ -148,7 +148,9 @@
                                      res (<! ch)] 
                                  (recur 
                                    (rest chs) 
-                                   (conj acc res))))))
+                                   (conj acc res)
+                                   
+                                   )))))
                  out-json (str 
                             (json/write-str results) 
                             ",")
