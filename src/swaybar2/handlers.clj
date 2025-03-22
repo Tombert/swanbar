@@ -340,11 +340,23 @@
   {:data {}}
   )
 
+; (defn- run-detached [cmd & args]
+;   (let [pb (ProcessBuilder. (into [cmd] args))]
+;     (.redirectOutput pb ProcessBuilder$Redirect/DISCARD)
+;     (.redirectError pb ProcessBuilder$Redirect/DISCARD)
+;     (.start pb)
+;     (spit "/home/tombert/dbg" "Made it to detached" :append true)
+;     (.flush *out*)
+;     ))
+
 (defn- run-detached [cmd & args]
-  (let [pb (ProcessBuilder. (into [cmd] args))]
-    (.redirectOutput pb ProcessBuilder$Redirect/DISCARD)
-    (.redirectError pb ProcessBuilder$Redirect/DISCARD)
-    (.start pb))) 
+  (try
+    (let [pb (ProcessBuilder. (into [cmd] args))]
+      (.redirectOutput pb ProcessBuilder$Redirect/DISCARD)
+      (.redirectError pb ProcessBuilder$Redirect/DISCARD)
+      (.start pb))
+    (catch Exception e
+      (spit "/home/tombert/dbg" (str "Error: " (.getMessage e) "\n") :append true))))
 
 (defmulti mouse-handler (fn [a program] a))
 

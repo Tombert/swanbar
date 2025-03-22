@@ -11,4 +11,5 @@ native-image \
 	--allow-incomplete-classpath \
 	--no-fallback \
 	-H:IncludeResources="commons-logging.properties" \
+	-H:ReflectionConfigurationFiles=reflect-config.json \
 	-jar target/swaybar2.jar target/swaybar2

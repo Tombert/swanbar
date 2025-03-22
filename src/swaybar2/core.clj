@@ -58,11 +58,11 @@
                                parse-n-key)
       :else :nothing)))
 
-(defn- do-all-handler [i]
+(defn- do-all-handler [i curr-state]
   (go
     (let 
       [kkey (-> i (get "name") keyword)
-       curr-state @state
+       ;curr-state @state
        ttl (-> i (get "ttl" 0) (Duration/ofMillis))
        nname (get i "name")
        is-async (get i "async" false)
@@ -79,7 +79,7 @@
                        (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
-       ch (if (and (not is-processing) (> (.compareTo now expire-time) 0))
+       ch (if (and (not is-processing) (pos? (.compareTo now expire-time)))
             (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) ]
               (swap! state
                      #(-> %
@@ -138,7 +138,7 @@
                  click-event (parse-std input)
                  chs (vec (for [i events]
                             (do
-                              (do-all-handler i))))
+                              (do-all-handler i @state))))
                  results (loop [chs chs
                                 acc []] 
                            (do 
