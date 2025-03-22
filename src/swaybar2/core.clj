@@ -79,7 +79,7 @@
                        (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
-       [ch-p n1] (when (and (not is-processing) (pos? (.compareTo now expire-time)))
+       {:keys [ch-p n1]} (when (and (not is-processing) (pos? (.compareTo now expire-time)))
                    (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) 
                          nstate (-> curr-state 
                                     (assoc-in [kkey :processing] true)
@@ -93,7 +93,7 @@
                                  (assoc-in [kkey :channel] ch)
                                  (assoc-in [kkey :expires] (.plus now ttl))
                                  (assoc-in [kkey :started] now)))
-                     [ch nstate]))
+                     {:ch-p ch :n1 nstate}))
        ch (or ch-p old-channel)
        new-state (or n1 curr-state)
        old-data (get-in new-state [kkey :data])
