@@ -133,7 +133,7 @@
                 :color (get i "color" "#FFFFFF")
                 :full_text (:out rendered)}
        ]
-      out-obj )))
+      {:module kkey :res out-obj :nstate new-state-2})))
 
 (defn renderer [input-chan]
   (go-loop []
@@ -156,7 +156,7 @@
                                 acc [] ] 
                            (do 
                              (if (empty? chs)
-                               (do acc)
+                               (do (mapv :res acc))
                                (let [ch (first chs)
                                      res (<! ch)] 
                                  (recur 
