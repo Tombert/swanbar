@@ -79,18 +79,24 @@
                        (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
-       ch-p (when (and (not is-processing) (pos? (.compareTo now expire-time)))
-            (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) ]
-              (swap! state
-                     #(-> %
-                          (assoc-in [kkey :processing] true)
-                          (assoc-in [kkey :channel] ch)
-                          (assoc-in [kkey :expires] (.plus now ttl))
-                          (assoc-in [kkey :started] now)))
-              ch) 
-            )
+       [ch-p n1] (when (and (not is-processing) (pos? (.compareTo now expire-time)))
+                   (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) 
+                         nstate (-> curr-state 
+                                    (assoc-in [kkey :processing] true)
+                                    (assoc-in [kkey :channel] ch)
+                                    (assoc-in [kkey :expires] (.plus now ttl))
+                                    (assoc-in [kkey :started] now))
+                         ]
+                     (swap! state
+                            #(-> %
+                                 (assoc-in [kkey :processing] true)
+                                 (assoc-in [kkey :channel] ch)
+                                 (assoc-in [kkey :expires] (.plus now ttl))
+                                 (assoc-in [kkey :started] now)))
+                     [ch nstate]))
        ch (or ch-p old-channel)
-       old-data (get-in curr-state [kkey :data])
+       new-state (or n1 curr-state)
+       old-data (get-in new-state [kkey :data])
 
        poll-data  (let [res (a/poll! ch) ]
                     (if res 
@@ -107,7 +113,6 @@
                                    #(-> %
                                         (assoc-in [kkey :processing] false)
                                         (assoc-in [kkey :expires] (Duration/ofNanos 0))))
-                            ; force it to restart if it timed out
                             nil)))))
        data (or poll-data old-data)
 
