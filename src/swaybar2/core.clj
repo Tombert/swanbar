@@ -75,7 +75,8 @@
        now (-> (System/nanoTime) 
                Duration/ofNanos)
        is-processing (get-in curr-state [kkey :processing] false)
-       expire-time (-> curr-state (get-in [kkey :expires] (Duration/ofNanos 0)))
+       expire-time (-> curr-state 
+                       (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
        ch (if (and (not is-processing) (> (.compareTo now expire-time) 0))
@@ -102,7 +103,6 @@
                        (when (and is-async is-processing)
                          (let [delta (.minus now started)]
                            (when (> (.compareTo delta async-timeout) 0)
-                             (println delta)
                              (swap! state
                                 #(-> %
                                      (assoc-in [kkey :processing] false)
