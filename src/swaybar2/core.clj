@@ -69,16 +69,17 @@
 
        ; Don't love hard-coding this.  Might need to figure out
        ; a good way to avoid this. 
-       async-timeout (-> i (get "async_timeout" 1000) (Duration/ofMillis))
-       now (-> (System/nanoTime) (Duration/ofNanos))
+       async-timeout (-> i 
+                         (get "async_timeout" 1000) 
+                         Duration/ofMillis)
+       now (-> (System/nanoTime) 
+               Duration/ofNanos)
        is-processing (get-in curr-state [kkey :processing] false)
        expire-time (-> curr-state (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
        ch (if (and (not is-processing) (> (.compareTo now expire-time) 0))
-            (let [
-                  ch (if is-async (fetch-data kkey) (go (fetch-data kkey)))
-                  ]
+            (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) ]
               (swap! state
                      #(-> %
                           (assoc-in [kkey :processing] true)
@@ -97,7 +98,6 @@
                                 #(-> %
                                      (assoc-in [kkey :processing] false)
                                      (assoc-in [kkey :data] res)))           
-
                          res) 
                        (when (and is-async is-processing)
                          (let [delta (.minus now started)]

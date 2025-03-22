@@ -2,7 +2,8 @@
 (ns swaybar2.handlers
   (:gen-class)
   (:import [java.time LocalDateTime]
-           [java.lang ProcessBuilder ProcessBuilder$Redirect]
+           [java.io File]
+           [java.lang ProcessHandle ProcessBuilder ProcessBuilder$Redirect]
            [java.nio.channels Channels SelectableChannel Selector SelectionKey]
            [java.nio ByteBuffer]
            [java.lang System]
@@ -20,6 +21,26 @@
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]]))
 
+(defn executable-dir []
+  (let [handle (java.lang.ProcessHandle/current)
+        info (.info handle)
+        opt-cmd (.command info)
+        cmd (.get opt-cmd)
+        a (-> cmd 
+              (clojure.string/split #"/")
+              pop)
+        final-path (clojure.string/join "/" a)
+        ]
+    final-path))
+
+; (defn executable-dir []
+;   (let [path (-> (ProcessHandle/current)
+;                  .info
+;                  .command
+;                  .orElseThrow)]
+;     (-> (File. path)
+;         .getAbsoluteFile
+;         .getParent)))
 
 (def open-ai-key (clojure.string/trim (slurp (str (System/getenv "HOME") "/.open-ai-key"))))
 
@@ -182,7 +203,15 @@
 (defmethod render :default [_ _]
   {:out "NOT AVAILABLE"})
 
-(def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing" "robots" "iPads" "socks" "dingleberry" "toenails" "lamp" "basket" "laughter" "pizza" "rabbits" "wasps" "bookshelves" "flags" "blankets" "probiotics" "vitamins" "bag" "remote" "soap" "shower" "printer" "video games" "Linux" "Al Capone" "anime" "capsules" "alcohol" "t-shirts" "nocturnal emissions"])
+(defn- quote-topics- [_x]
+  (let [lines (-> (str (executable-dir) "/topics")
+                  slurp
+                  clojure.string/split-lines)]
+    lines
+    ))
+
+(def quote-topics (memoize quote-topics-))
+; (def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing" "robots" "iPads" "socks" "dingleberry" "toenails" "lamp" "basket" "laughter" "pizza" "rabbits" "wasps" "bookshelves" "flags" "blankets" "probiotics" "vitamins" "bag" "remote" "soap" "shower" "printer" "video games" "Linux" "Al Capone" "anime" "capsules" "alcohol" "t-shirts" "nocturnal emissions"])
 
 (defmulti fetch-data 
   (fn [method ]
@@ -207,11 +236,10 @@
 (defmethod fetch-data :quote [_]
   (go 
     (let [
-          rint (->> quote-topics 
+          rint (->> (quote-topics "")
                     count
                     rand-int)
-          topic (get quote-topics rint)
-
+          topic (get (quote-topics "") rint)
           prompt (str "Give me a unique medium-sized inspirational quote involving " topic " with an attribution to a fictional author whose name is a pun on " topic)
           role "You are a quote generator"
           quote-chan (call-gpt prompt role)

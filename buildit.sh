@@ -9,6 +9,6 @@ native-image \
 	--enable-all-security-services \
 	--enable-native-access=ALL-UNNAMED \
 	--allow-incomplete-classpath \
+	--no-fallback \
 	-H:IncludeResources="commons-logging.properties" \
-	-H:ReflectionConfigurationFiles=reflect-config.json \
 	-jar target/swaybar2.jar target/swaybar2
