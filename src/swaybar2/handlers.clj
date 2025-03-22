@@ -235,7 +235,6 @@
                    :out 
                    (clojure.string/split #" ") ) 
         volume-level (if (= "/" (get vol-info 5)) (get vol-info 4) (get vol-info 5))
-        now (System/currentTimeMillis)
         ]
      {
       :data {:is-muted is-muted 

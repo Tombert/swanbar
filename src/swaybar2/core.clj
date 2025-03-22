@@ -63,19 +63,19 @@
     (let 
       [kkey (-> i (get "name") keyword)
        curr-state @state
-       ttl (-> i (get "ttl" 0))
+       ttl (-> i (get "ttl" 0) (Duration/ofMillis))
        nname (get i "name")
        is-async (get i "async" false)
 
        ; Don't love hard-coding this.  Might need to figure out
        ; a good way to avoid this. 
-       async-timeout (get i "async_timeout" 1000)
-       now (System/currentTimeMillis)
+       async-timeout (-> i (get "async_timeout" 1000) (Duration/ofMillis))
+       now (-> (System/nanoTime) (Duration/ofNanos))
        is-processing (get-in curr-state [kkey :processing] false)
-       expire-time (get-in curr-state [kkey :expires] 0)
+       expire-time (-> curr-state (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
-       ch (if (and (not is-processing) (> now expire-time))
+       ch (if (and (not is-processing) (> (.compareTo now expire-time) 0))
             (let [
                   ch (if is-async (fetch-data kkey) (go (fetch-data kkey)))
                   ]
@@ -83,7 +83,7 @@
                      #(-> %
                           (assoc-in [kkey :processing] true)
                           (assoc-in [kkey :channel] ch)
-                          (assoc-in [kkey :expires] (+ ttl now))
+                          (assoc-in [kkey :expires] (.plus now ttl))
                           (assoc-in [kkey :started] now)))
               ch) 
             old-channel)
@@ -100,13 +100,13 @@
 
                          res) 
                        (when (and is-async is-processing)
-                         (let [delta (- now started)]
-                           (when (> delta async-timeout)
+                         (let [delta (.minus now started)]
+                           (when (> (.compareTo delta async-timeout) 0)
                              (println delta)
                              (swap! state
                                 #(-> %
                                      (assoc-in [kkey :processing] false)
-                                     (assoc-in [kkey :expires] 0)))
+                                     (assoc-in [kkey :expires] (Duration/ofNanos 0))))
                              ; force it to restart if it timed out
                              nil))))))
        data (or poll-data old-data)
