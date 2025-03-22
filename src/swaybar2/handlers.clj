@@ -211,7 +211,6 @@
     ))
 
 (def quote-topics (memoize quote-topics-))
-; (def quote-topics ["dogs" "cheese" "oranges" "sperm" "pineapples" "pressure cookers" "diet soda" "yoga" "milkshake" "fried chicken" "belly buttons" "napkins" "yarn" "heathcliff the cat" "ginger ale" "shampoo" "vacuum cleaners" "laptops" "books" "them" "nothing" "robots" "iPads" "socks" "dingleberry" "toenails" "lamp" "basket" "laughter" "pizza" "rabbits" "wasps" "bookshelves" "flags" "blankets" "probiotics" "vitamins" "bag" "remote" "soap" "shower" "printer" "video games" "Linux" "Al Capone" "anime" "capsules" "alcohol" "t-shirts" "nocturnal emissions"])
 
 (defmulti fetch-data 
   (fn [method ]
