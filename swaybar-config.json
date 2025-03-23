@@ -7,6 +7,7 @@
 			"async_timeout": 120000,
 			"name": "bg-fetcher",
 			"display" : false,
+			"persist_invoked_time": true,
 			"ttl": 21600000,
 			"misc": {
 				"directory" : "/home/tombert/wallpapers/"
@@ -39,7 +40,7 @@
 		},
 		{
 			"name": "wifi",
-			"ttl": 0,
+			"ttl": 1000,
 			"click_program": "iwgtk"
 		},
 		{
