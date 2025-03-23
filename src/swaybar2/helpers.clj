@@ -5,6 +5,7 @@
            [java.lang ProcessHandle ProcessBuilder ProcessBuilder$Redirect]
            [java.nio.channels Channels SelectableChannel Selector SelectionKey]
            [java.nio ByteBuffer]
+           [java.nio.file Paths Files]
            [java.lang System]
            [java.time Duration])
   (:use [clojure.java.shell :only [sh]])
@@ -17,6 +18,15 @@
             alts! alts!! timeout]]))
 
 (def open-ai-key (clojure.string/trim (slurp (str (System/getenv "HOME") "/.open-ai-key"))))
+
+(defn get-filenames [directory]
+   (try (let [^Path dir (Paths/get directory (make-array String 0))]
+     (with-open [stream (Files/newDirectoryStream dir)]
+       (->> stream (mapv str))))
+        (catch Exception e
+          (spit "/home/tombert/dbg" (str "Except:" e) :append true)
+          )
+        ))
 
 (defn generate-mock [shells]
   (let [api-key open-ai-key
@@ -80,5 +90,5 @@
       (.start pb))
     (catch Exception e
       (spit "/home/tombert/dbg"
-            (str "Error: " (.getMessage e) "\n")
+            (str "\nError: " (str e) "\n")
             :append true))))

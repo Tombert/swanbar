@@ -13,7 +13,7 @@
    [clojure.core.async.impl.dispatch :as dispatch]
    [clojure.data.json :as json]
    [swaybar2.handlers :as h
-    :refer [render fetch-data mouse-handler]]
+    :refer [render fetch-data cleanup process mouse-handler]]
    [clojure.core.async
     :as a
     :refer [>! <! >!! <!! go go-loop chan buffer close! thread
@@ -67,14 +67,19 @@
                              (assoc-in [kkey :expires] (Duration/ofNanos 0)))]
               {:poll-data nil :n2 nstate})))))))
 
-(defn- maybe-start-tasks [curr-state kkey is-async is-processing ^Duration now ^Duration expire-time ^Duration ttl]
+(defn- maybe-start-tasks [curr-state misc kkey is-async is-processing ^Duration now ^Duration expire-time ^Duration ttl]
   (when (and (not is-processing) (pos? (.compareTo now expire-time)))
-    (let [ch (if is-async (fetch-data kkey) (go (fetch-data kkey)))
+    (let [ch (if is-async (fetch-data kkey misc) (go (fetch-data kkey misc)))
+          _ (cleanup kkey (get-in curr-state [kkey :p-data :data]))
+          p-data (process kkey (get-in curr-state [kkey :data :data]))
           nstate (-> curr-state
                      (assoc-in [kkey :processing] true)
                      (assoc-in [kkey :channel] ch)
                      (assoc-in [kkey :expires] (.plus now ttl))
-                     (assoc-in [kkey :started] now))]
+                     (assoc-in [kkey :started] now)
+                     (assoc-in [kkey :p-data] p-data))]
+      ; (cleanup kkey (get-in curr-state [kkey :data]))
+      ; (process kkey (get-in curr-state [kkey :data]))
       {:ch-p ch :n1 nstate})))
 
 (defn- do-all-handler [i curr-state]
@@ -92,6 +97,7 @@
       async-timeout (-> i
                         (get "async_timeout" 1000)
                         Duration/ofMillis)
+      misc (-> i (get "misc"))
       now (-> (System/nanoTime)
               Duration/ofNanos)
       is-processing (get-in curr-state [kkey :processing] false)
@@ -99,7 +105,7 @@
                       (get-in [kkey :expires] (Duration/ofNanos 0)))
       old-channel (get-in curr-state [kkey :channel])
       started (get-in curr-state [kkey :started] now)
-      {:keys [ch-p n1]} (maybe-start-tasks curr-state kkey is-async is-processing now expire-time ttl)
+      {:keys [ch-p n1]} (maybe-start-tasks curr-state misc kkey is-async is-processing now expire-time ttl)
       ch (or ch-p old-channel)
       new-state (or n1 curr-state)
       old-data (get-in new-state [kkey :data])
@@ -147,13 +153,22 @@
                              (rest chs)
                              (conj acc res))))))
 
-          results (mapv :res results-p)
+          ;results (mapv :res results-p)
           n-state (->> results-p
                        (reduce
                         (fn [interim i]
                           (let [kkey (get-in i [:module])
                                 value (get-in i [:nstate kkey])]
                             (assoc interim kkey value))) {}))
+          results (->> results-p
+                         (mapcat
+                           (fn [i]
+                             (if (-> module-map 
+                                     (get-in 
+                                       [(:module i) "display"] 
+                                       true))
+                               [(:res i)]
+                               []))))
           out-json (str
                     (json/write-str results)
                     ",")]

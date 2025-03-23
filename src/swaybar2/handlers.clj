@@ -13,7 +13,7 @@
    [hato.client :as hc]
    [clojure.data.json :as json]
    [swaybar2.helpers
-    :refer [executable-dir run-detached call-gpt generate-mock]]
+    :refer [executable-dir run-detached call-gpt generate-mock get-filenames]]
    [clojure.core.async
     :as a
     :refer [>! <! >!! <!! go go-loop chan buffer close! thread
@@ -127,11 +127,39 @@
 
 (def quote-topics (memoize quote-topics-))
 
-(defmulti fetch-data
-  (fn [method]
+
+(defmulti process 
+  (fn [method _]
     method))
 
-(defmethod fetch-data :shellmock [_]
+(defmethod process :bg-changer [_ data]
+  (let [background (:background data)
+        pid (run-detached "swaybg" "-i" background "-m" "stretch")]
+    {:data {:pid pid}}))
+
+(defmethod process :default [_ _])
+
+
+(defmulti fetch-data
+  (fn [method _]
+    method))
+
+; (def backgrounds ["/home/tombert/wallpapers/awesome.png" 
+;                   "/home/tombert/wallpapers/background.png"])
+
+(defmethod fetch-data :bg-changer [_ misc]
+  (let [ 
+        backgrounds (-> misc (get-in ["directory"]) get-filenames)
+         _ (spit "/home/tombert/dbg" (str "\nbackgrounds: " backgrounds) :append true)
+         rint (rand-int (count backgrounds))
+         background (get backgrounds rint) 
+         _ (spit "/home/tombert/dbg" (str "selected bg: " background) :append true)
+         ]
+  {:data {
+          :background background
+           }}))
+
+(defmethod fetch-data :shellmock [_ _]
   (let [shell-lines (->> (str (System/getenv "HOME") "/.zsh_history")
                          slurp
                          clojure.string/split-lines
@@ -141,7 +169,7 @@
 
     {:data {:mock mock}}))
 
-(defmethod fetch-data :quote [_]
+(defmethod fetch-data :quote [_ _]
   (go
     (let [rint (->> (quote-topics "")
                     count
@@ -153,7 +181,7 @@
           qquote (<! quote-chan)]
       {:data {:quote qquote}})))
 
-(defmethod fetch-data :volume [_]
+(defmethod fetch-data :volume [_ _]
   (let [is-muted (-> (sh "pactl" "get-sink-mute" "@DEFAULT_SINK@")
                      :out
                      clojure.string/trim
@@ -169,7 +197,7 @@
     {:data {:is-muted is-muted
             :volume volume-level}}))
 
-(defmethod fetch-data :date [_]
+(defmethod fetch-data :date [_ _]
   (let [now (LocalDateTime/now)
         month (clojure.string/trim (str (.getMonth now)))
         day-of-week (str (.getDayOfWeek now))
@@ -187,7 +215,7 @@
             :second ssecond
             :minute minute}}))
 
-(defmethod fetch-data :wifi [_]
+(defmethod fetch-data :wifi [_ _]
   (let [params (->> (sh "iw" "dev")
                     :out
                     clojure.string/split-lines
@@ -210,7 +238,7 @@
     {:data {:ssid ssid
             :connect-status connect-status}}))
 
-(defmethod fetch-data :selected [_]
+(defmethod fetch-data :selected [_ _]
   (let [selected-prog (->
                        (sh "swaymsg" "-t" "get_tree")
                        :out
@@ -220,7 +248,7 @@
     {:data
      {:current-prog selected-prog}}))
 
-(defmethod fetch-data :battery [_]
+(defmethod fetch-data :battery [_ _]
   (let [bat-path "/sys/class/power_supply/BAT0"
         capacity (clojure.string/trim
                   (clojure.string/replace
@@ -235,7 +263,7 @@
     {:data {:capacity capacity
             :status status}}))
 
-(defmethod fetch-data :default [_]
+(defmethod fetch-data :default [_ _]
   {:data {}})
 
 (defmulti mouse-handler (fn [a program] a))
@@ -248,3 +276,10 @@
 
 (defmethod mouse-handler :default [_ program])
 
+(defmulti cleanup (fn [a _] a))
+
+(defmethod cleanup :bg-changer [_ bg-data]
+  (let [^Process pid (get-in bg-data [:pid])]
+    (when pid (.destroy pid))))
+
+(defmethod cleanup :default [_ _])
