@@ -21,10 +21,6 @@
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]])) 
 
-;(def state (atom {}))
-
-;(def TIMEOUT-MS 50)
-
 (def BUFFER-SIZE 50)
 
 (defn force-graal-to-include-processbuilder []
@@ -87,12 +83,6 @@
                                     (assoc-in [kkey :expires] (.plus now ttl))
                                     (assoc-in [kkey :started] now))
                          ]
-                     ; (swap! state
-                     ;        #(-> %
-                     ;             (assoc-in [kkey :processing] true)
-                     ;             (assoc-in [kkey :channel] ch)
-                     ;             (assoc-in [kkey :expires] (.plus now ttl))
-                     ;             (assoc-in [kkey :started] now)))
                      {:ch-p ch :n1 nstate}))
        ch (or ch-p old-channel)
        new-state (or n1 curr-state)
@@ -104,23 +94,14 @@
                                 nstate (-> new-state 
                                            (assoc-in [kkey :processing] false)
                                            (assoc-in [kkey :data] res)) ]
-                            ; (swap! state
-                            ;        #(-> %
-                            ;             (assoc-in [kkey :processing] false)
-                            ;             (assoc-in [kkey :data] res)))           
                             {:poll-data res :n2 nstate}) 
                           (when (and is-async is-processing)
                             (let [delta (.minus now started)]
-                              (when (> (.compareTo delta async-timeout) 0)
+                              (when (pos? (.compareTo delta async-timeout))
                                 (let [
                                       nstate (-> new-state
                                                  (assoc-in [kkey :processing] false)
                                                  (assoc-in [kkey :expires] (Duration/ofNanos 0)))] 
-
-                                  ; (swap! state
-                                  ;        #(-> %
-                                  ;             (assoc-in [kkey :processing] false)
-                                  ;             (assoc-in [kkey :expires] (Duration/ofNanos 0))))
                                 {:poll-data nil :n2 nstate}))))))
        data (or poll-data old-data)
        new-state-2 (or n2 new-state)
@@ -131,8 +112,7 @@
                 :instance  nname
                 :background (get i "background" "#000000")
                 :color (get i "color" "#FFFFFF")
-                :full_text (:out rendered)}
-       ]
+                :full_text (:out rendered)}]
       {:module kkey :res out-obj :nstate new-state-2})))
 
 (defn renderer [input-chan]

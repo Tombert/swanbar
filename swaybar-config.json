@@ -1,6 +1,6 @@
 
 {
-	"poll_time" : 1000,
+	"poll_time" : 50,
 	"modules" : [
 		{
 			"async": true,
