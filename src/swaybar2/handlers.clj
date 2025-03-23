@@ -133,6 +133,7 @@
     method))
 
 (defmethod process :bg-changer [_ data]
+  (spit "/home/tombert/dbg" (str "\nthe data: " data) :append true)
   (let [background (:background data)
         pid (run-detached "swaybg" "-i" background "-m" "stretch")]
     {:data {:pid pid}}))
