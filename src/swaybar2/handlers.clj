@@ -133,7 +133,6 @@
     method))
 
 (defmethod process :bg-changer [_ data]
-  (spit "/home/tombert/dbg" (str "\nthe data: " data) :append true)
   (let [background (:background data)
         pid (run-detached "swaybg" "-i" background "-m" "stretch")]
     {:data {:pid pid}}))
@@ -151,10 +150,8 @@
 (defmethod fetch-data :bg-changer [_ misc]
   (let [ 
         backgrounds (-> misc (get-in ["directory"]) get-filenames)
-         _ (spit "/home/tombert/dbg" (str "\nbackgrounds: " backgrounds) :append true)
          rint (rand-int (count backgrounds))
          background (get backgrounds rint) 
-         _ (spit "/home/tombert/dbg" (str "selected bg: " background) :append true)
          ]
   {:data {
           :background background
