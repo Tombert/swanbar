@@ -148,11 +148,9 @@
 ;                   "/home/tombert/wallpapers/background.png"])
 
 (defmethod fetch-data :bg-changer [_ misc]
-  (let [ 
-        backgrounds (-> misc (get-in ["directory"]) get-filenames)
+  (let [backgrounds (-> misc (get-in ["directory"]) get-filenames)
          rint (rand-int (count backgrounds))
-         background (get backgrounds rint) 
-         ]
+         background (get backgrounds rint)]
   {:data {
           :background background
            }}))

@@ -137,12 +137,14 @@
       (println msg))
     (recur)))
 
-(defn do-all [my-timeout in-chan events module-map]
+(defn do-all [^Duration my-timeout in-chan events module-map]
   (>!! in-chan "{\"version\":1, \"click_events\":true}")
   (>!! in-chan "[")
   (>!! in-chan "[],")
   (go-loop [my-state {}]
-    (let [input (read-stdin-if-ready)
+    (let [
+          start (-> (System/nanoTime) Duration/ofNanos)
+          input (read-stdin-if-ready)
           click-event (parse-std input)
           chs (vec (for [i events]
                      (do
@@ -176,10 +178,11 @@
                                []))))
           out-json (str
                     (json/write-str results)
-                    ",")]
+                    ",")
+          ]
       (mouse-handler click-event (get-in module-map [click-event "click_program"]))
       (>! in-chan out-json)
-      (<! (timeout my-timeout))
+      (<! (timeout (max 0 (.toMillis (.minus my-timeout (-> (System/nanoTime) (Duration/ofNanos ) (.minus start)) )))))
       (recur n-state))))
 (defn- args-to-keys [args]
   (->> args
@@ -204,7 +207,7 @@
                        (fn [i]
                          [(keyword (get i "name")) i]))
                       (into {}))
-          my-timeout (get-in in-obj ["poll_time"])
+          my-timeout (-> in-obj (get-in ["poll_time"]) Duration/ofMillis)
 
           in-chan (chan BUFFER-SIZE)]
       (force-graal-to-include-processbuilder)
