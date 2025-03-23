@@ -56,7 +56,7 @@
   (let [res (a/poll! ch)]
     (if res
       (let [
-            p-data (process kkey (:data res))
+            p-data (->> res :data (process kkey))
             nstate (-> state
                        (assoc-in [kkey :processing] false)
                        (assoc-in [kkey :data] res)
@@ -73,7 +73,7 @@
 (defn- maybe-start-tasks [curr-state misc kkey is-async is-processing ^Duration now ^Duration expire-time ^Duration ttl]
   (when (and (not is-processing) (pos? (.compareTo now expire-time)))
     (let [ch (if is-async (fetch-data kkey misc) (go (fetch-data kkey misc)))
-          _ (cleanup kkey (get-in curr-state [kkey :p-data]))
+          _ (cleanup kkey (get-in curr-state [kkey :p-data :data]))
           ;p-data (process kkey (get-in curr-state [kkey :data :data]))
           nstate (-> curr-state
                      (assoc-in [kkey :processing] true)
