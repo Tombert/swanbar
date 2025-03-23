@@ -53,6 +53,7 @@
       (= (first input) \{) (-> input 
                                parse-n-key)
       :else :nothing)))
+
 (defn- poller [ch state kkey ^Duration started ^Duration now is-async is-processing async-timeout]
   (let [res (a/poll! ch) ]
     (if res 
@@ -72,29 +73,27 @@
 
 (defn- maybe-start-tasks [curr-state kkey is-async is-processing ^Duration now ^Duration expire-time ^Duration ttl]
   (when (and (not is-processing) (pos? (.compareTo now expire-time)))
-                   (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) 
-                         nstate (-> curr-state 
-                                    (assoc-in [kkey :processing] true)
-                                    (assoc-in [kkey :channel] ch)
-                                    (assoc-in [kkey :expires] (.plus now ttl))
-                                    (assoc-in [kkey :started] now))
-                         ]
-                     {:ch-p ch :n1 nstate}))
-  
-  )
+    (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) 
+          nstate (-> curr-state 
+                     (assoc-in [kkey :processing] true)
+                     (assoc-in [kkey :channel] ch)
+                     (assoc-in [kkey :expires] (.plus now ttl))
+                     (assoc-in [kkey :started] now))]
+      {:ch-p ch :n1 nstate})))
 
 (defn- do-all-handler [i curr-state]
   (go
     (let 
       [kkey (-> i (get "name") keyword)
-       ;curr-state @state
-       ttl (-> i (get "ttl" 0) (Duration/ofMillis))
+       ttl (-> i 
+               (get "ttl" 0) 
+               Duration/ofMillis)
        nname (get i "name")
        is-async (get i "async" false)
 
        ; Don't love hard-coding this.  Might need to figure out
        ; a good way to avoid this. 
-       async-timeout (-> i 
+       async-timeout (-> i
                          (get "async_timeout" 1000) 
                          Duration/ofMillis)
        now (-> (System/nanoTime) 
@@ -155,15 +154,15 @@
                                    
                                    )))))
                  results (mapv :res results-p)
-                 n-state (->> results-p (reduce (fn [interim i]
-                                                (let [kkey (get-in i [:module])
-                                                      value (get-in i [:nstate kkey])
-                                                      ] (assoc interim kkey value)
-                                                  )) {} ))
+                 n-state (->> results-p 
+                              (reduce 
+                                (fn [interim i]
+                                  (let [kkey (get-in i [:module])
+                                        value (get-in i [:nstate kkey])] 
+                                    (assoc interim kkey value))) {} ))
                  out-json (str 
                             (json/write-str results) 
-                            ",")
-                 ] 
+                            ",")] 
              (mouse-handler click-event (get-in module-map [click-event "click_program"]))
              (>! in-chan out-json)
              (<! (timeout my-timeout))

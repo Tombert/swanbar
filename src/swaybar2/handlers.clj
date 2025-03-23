@@ -10,39 +10,15 @@
            [java.time Duration]
            )
   (:use [clojure.java.shell :only [sh]]
-        ;[clojure.string :only split-lines]
         )
   (:require 
     [hato.client :as hc]
     [clojure.data.json :as json]
-    ;[clj-http.client :as http]
+    [swaybar2.helpers :refer [executable-dir run-detached call-gpt generate-mock]]
     [clojure.core.async
              :as a
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]]))
-
-(defn executable-dir []
-  (let [handle (java.lang.ProcessHandle/current)
-        info (.info handle)
-        opt-cmd (.command info)
-        cmd (.get opt-cmd)
-        a (-> cmd 
-              (clojure.string/split #"/")
-              pop)
-        final-path (clojure.string/join "/" a)
-        ]
-    final-path))
-
-; (defn executable-dir []
-;   (let [path (-> (ProcessHandle/current)
-;                  .info
-;                  .command
-;                  .orElseThrow)]
-;     (-> (File. path)
-;         .getAbsoluteFile
-;         .getParent)))
-
-(def open-ai-key (clojure.string/trim (slurp (str (System/getenv "HOME") "/.open-ai-key"))))
 
 (def wifi-map {:connected  "📶"
                :disconnected "❌"
@@ -80,48 +56,6 @@
    "NOVEMBER" "Nov"
    "DECEMBER" "Dec"
    })
-
-(defn call-gpt [prompt role]
-  (let [return-chan (chan)
-        api-key open-ai-key
-        body {:model "gpt-3.5-turbo"
-              :messages [{:role "system"
-                          :content role}
-                         {:role "user"
-                          :content prompt}]}]
-    (hc/post "https://api.openai.com/v1/chat/completions"
-             {:async? true
-              :headers {"Authorization" (str "Bearer " api-key)
-                        "Content-Type" "application/json"}
-              :body (json/write-str body)
-              :socket-timeout 3000
-              :connect-timeout 3000} 
-             (fn [resp]
-               (let [
-                     parsed (json/read-str (:body resp) :key-fn keyword)
-                     results (get-in parsed [:choices 0 :message :content])
-                     ]
-                 (a/put! return-chan results)))
-             (fn [err]
-               (a/put! return-chan :error)
-               ))
-    return-chan))
-
-(defn generate-mock [shells]
-  (let [api-key open-ai-key
-        body {:model "gpt-3.5-turbo"
-              :messages [{:role "system"
-                          :content "You are an insult generator."}
-                         {:role "user"
-                          :content (str "Roast and make fun of this shell history with a short quip: " shells)}]}
-        resp (hc/post "https://api.openai.com/v1/chat/completions"
-                      {:headers {"Authorization" (str "Bearer " api-key)
-                                 "Content-Type" "application/json"}
-                       :body (json/write-str body)
-                       :socket-timeout 3000
-                       :connect-timeout 3000})
-        parsed (json/read-str (:body resp) :key-fn keyword)]
-    (get-in parsed [:choices 0 :message :content])))
 
 (defn- find-deep [x]
   (cond
@@ -330,33 +264,14 @@
                  (clojure.string/replace #" " "") 
                  clojure.string/trim keyword)
         ]
-    {
-     :data 
-     { 
-      :capacity capacity :status status}}))
-
+    { :data { 
+             :capacity capacity 
+             :status status}}))
 
 (defmethod fetch-data :default [_]
-  {:data {}}
-  )
+  {:data {}})
 
-; (defn- run-detached [cmd & args]
-;   (let [pb (ProcessBuilder. (into [cmd] args))]
-;     (.redirectOutput pb ProcessBuilder$Redirect/DISCARD)
-;     (.redirectError pb ProcessBuilder$Redirect/DISCARD)
-;     (.start pb)
-;     (spit "/home/tombert/dbg" "Made it to detached" :append true)
-;     (.flush *out*)
-;     ))
 
-(defn- run-detached [cmd & args]
-  (try
-    (let [pb (ProcessBuilder. (into [cmd] args))]
-      (.redirectOutput pb ProcessBuilder$Redirect/DISCARD)
-      (.redirectError pb ProcessBuilder$Redirect/DISCARD)
-      (.start pb))
-    (catch Exception e
-      (spit "/home/tombert/dbg" (str "Error: " (.getMessage e) "\n") :append true))))
 
 (defmulti mouse-handler (fn [a program] a))
 
