@@ -142,48 +142,53 @@
   (>!! in-chan "[")
   (>!! in-chan "[],")
   (go-loop [my-state {}]
-    (let [
-          start (-> (System/nanoTime) Duration/ofNanos)
-          input (read-stdin-if-ready)
-          click-event (parse-std input)
-          chs (vec (for [i events]
-                     (do
-                       (do-all-handler i my-state))))
-          results-p (loop [chs chs
-                           acc []]
-                      (do
-                        (if (empty? chs)
-                          (do acc)
-                          (let [ch (first chs)
-                                res (<! ch)]
-                            (recur
-                             (rest chs)
-                             (conj acc res))))))
+           (let [
+                 start (-> (System/nanoTime) Duration/ofNanos)
+                 input (read-stdin-if-ready)
+                 click-event (parse-std input)
+                 chs (vec (for [i events]
+                            (do
+                              (do-all-handler i my-state))))
+                 results-p (loop [chs chs
+                                  acc []]
+                             (do
+                               (if (empty? chs)
+                                 (do acc)
+                                 (let [ch (first chs)
+                                       res (<! ch)]
+                                   (recur
+                                     (rest chs)
+                                     (conj acc res))))))
 
-          ;results (mapv :res results-p)
-          n-state (->> results-p
-                       (reduce
-                        (fn [interim i]
-                          (let [kkey (get-in i [:module])
-                                value (get-in i [:nstate kkey])]
-                            (assoc interim kkey value))) {}))
-          results (->> results-p
-                         (mapcat
-                           (fn [i]
-                             (if (-> module-map 
-                                     (get-in 
-                                       [(:module i) "display"] 
-                                       true))
-                               [(:res i)]
-                               []))))
-          out-json (str
-                    (json/write-str results)
-                    ",")
-          ]
-      (mouse-handler click-event (get-in module-map [click-event "click_program"]))
-      (>! in-chan out-json)
-      (<! (timeout (max 0 (.toMillis (.minus my-timeout (-> (System/nanoTime) (Duration/ofNanos ) (.minus start)) )))))
-      (recur n-state))))
+                 ;results (mapv :res results-p)
+                 n-state (->> results-p
+                              (reduce
+                                (fn [interim i]
+                                  (let [kkey (get-in i [:module])
+                                        value (get-in i [:nstate kkey])]
+                                    (assoc interim kkey value))) {}))
+                 results (->> results-p
+                              (mapcat
+                                (fn [i]
+                                  (if (-> module-map 
+                                          (get-in 
+                                            [(:module i) "display"] 
+                                            true))
+                                    [(:res i)]
+                                    []))))
+                 out-json (str
+                            (json/write-str results)
+                            ",")
+                 ]
+             (mouse-handler click-event (get-in module-map [click-event "click_program"]))
+             (>! in-chan out-json)
+             (let [
+                   time-taken (-> (System/nanoTime) (Duration/ofNanos ) (.minus start)) 
+                   delta (.minus my-timeout time-taken)
+                   final-timeout (max 0 (.toMillis delta))]
+
+               (<! (timeout final-timeout))
+               (recur n-state)))))
 (defn- args-to-keys [args]
   (->> args
        (map clojure.string/trim)

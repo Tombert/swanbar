@@ -3,6 +3,16 @@
 	"poll_time" : 50,
 	"modules" : [
 		{
+			"async":true,
+			"async_timeout": 120000,
+			"name": "bg-fetcher",
+			"display" : false,
+			"ttl": 21600000,
+			"misc": {
+				"directory" : "/home/tombert/wallpapers/"
+			}
+		},
+		{
 			"name": "bg-changer",
 			"display" : false,
 			"ttl": 60000,
