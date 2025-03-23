@@ -21,7 +21,7 @@
              :refer [>! <! >!! <!! go go-loop chan buffer close! thread
                      alts! alts!! timeout]])) 
 
-(def state (atom {}))
+;(def state (atom {}))
 
 ;(def TIMEOUT-MS 50)
 
@@ -87,12 +87,12 @@
                                     (assoc-in [kkey :expires] (.plus now ttl))
                                     (assoc-in [kkey :started] now))
                          ]
-                     (swap! state
-                            #(-> %
-                                 (assoc-in [kkey :processing] true)
-                                 (assoc-in [kkey :channel] ch)
-                                 (assoc-in [kkey :expires] (.plus now ttl))
-                                 (assoc-in [kkey :started] now)))
+                     ; (swap! state
+                     ;        #(-> %
+                     ;             (assoc-in [kkey :processing] true)
+                     ;             (assoc-in [kkey :channel] ch)
+                     ;             (assoc-in [kkey :expires] (.plus now ttl))
+                     ;             (assoc-in [kkey :started] now)))
                      {:ch-p ch :n1 nstate}))
        ch (or ch-p old-channel)
        new-state (or n1 curr-state)
@@ -104,10 +104,10 @@
                                 nstate (-> new-state 
                                            (assoc-in [kkey :processing] false)
                                            (assoc-in [kkey :data] res)) ]
-                            (swap! state
-                                   #(-> %
-                                        (assoc-in [kkey :processing] false)
-                                        (assoc-in [kkey :data] res)))           
+                            ; (swap! state
+                            ;        #(-> %
+                            ;             (assoc-in [kkey :processing] false)
+                            ;             (assoc-in [kkey :data] res)))           
                             {:poll-data res :n2 nstate}) 
                           (when (and is-async is-processing)
                             (let [delta (.minus now started)]
@@ -117,10 +117,10 @@
                                                  (assoc-in [kkey :processing] false)
                                                  (assoc-in [kkey :expires] (Duration/ofNanos 0)))] 
 
-                                  (swap! state
-                                         #(-> %
-                                              (assoc-in [kkey :processing] false)
-                                              (assoc-in [kkey :expires] (Duration/ofNanos 0))))
+                                  ; (swap! state
+                                  ;        #(-> %
+                                  ;             (assoc-in [kkey :processing] false)
+                                  ;             (assoc-in [kkey :expires] (Duration/ofNanos 0))))
                                 {:poll-data nil :n2 nstate}))))))
        data (or poll-data old-data)
        new-state-2 (or n2 new-state)
@@ -145,18 +145,18 @@
   (>!! in-chan "{\"version\":1, \"click_events\":true}")
   (>!! in-chan "[")
   (>!! in-chan "[],")
-  (go-loop [my-state state]
+  (go-loop [my-state {}]
            (let [
                  input (read-stdin-if-ready)
                  click-event (parse-std input)
                  chs (vec (for [i events]
                             (do
-                              (do-all-handler i @my-state))))
-                 results (loop [chs chs
+                              (do-all-handler i my-state))))
+                 results-p (loop [chs chs
                                 acc [] ] 
                            (do 
                              (if (empty? chs)
-                               (do (mapv :res acc))
+                               (do acc)
                                (let [ch (first chs)
                                      res (<! ch)] 
                                  (recur 
@@ -164,6 +164,12 @@
                                    (conj acc res)
                                    
                                    )))))
+                 results (mapv :res results-p)
+                 n-state (->> results-p (reduce (fn [interim i]
+                                                (let [kkey (get-in i [:module])
+                                                      value (get-in i [:nstate kkey])
+                                                      ] (assoc interim kkey value)
+                                                  )) {} ))
                  out-json (str 
                             (json/write-str results) 
                             ",")
@@ -171,7 +177,7 @@
              (mouse-handler click-event (get-in module-map [click-event "click_program"]))
              (>! in-chan out-json)
              (<! (timeout my-timeout))
-             (recur my-state))))
+             (recur n-state))))
 (defn- args-to-keys [args]
   (->> args
        (map clojure.string/trim)
