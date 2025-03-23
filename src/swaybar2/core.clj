@@ -53,6 +53,35 @@
       (= (first input) \{) (-> input 
                                parse-n-key)
       :else :nothing)))
+(defn- poller [ch state kkey ^Duration started ^Duration now is-async is-processing async-timeout]
+  (let [res (a/poll! ch) ]
+    (if res 
+      (let [
+            nstate (-> state
+                       (assoc-in [kkey :processing] false)
+                       (assoc-in [kkey :data] res)) ]
+        {:poll-data res :n2 nstate}) 
+      (when (and is-async is-processing)
+        (let [delta (.minus now started)]
+          (when (pos? (.compareTo delta async-timeout))
+            (let [
+                  nstate (-> state
+                             (assoc-in [kkey :processing] false)
+                             (assoc-in [kkey :expires] (Duration/ofNanos 0)))] 
+              {:poll-data nil :n2 nstate})))))))
+
+(defn- maybe-start-tasks [curr-state kkey is-async is-processing ^Duration now ^Duration expire-time ^Duration ttl]
+  (when (and (not is-processing) (pos? (.compareTo now expire-time)))
+                   (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) 
+                         nstate (-> curr-state 
+                                    (assoc-in [kkey :processing] true)
+                                    (assoc-in [kkey :channel] ch)
+                                    (assoc-in [kkey :expires] (.plus now ttl))
+                                    (assoc-in [kkey :started] now))
+                         ]
+                     {:ch-p ch :n1 nstate}))
+  
+  )
 
 (defn- do-all-handler [i curr-state]
   (go
@@ -75,34 +104,15 @@
                        (get-in [kkey :expires] (Duration/ofNanos 0)))
        old-channel (get-in curr-state [kkey :channel])
        started (get-in curr-state [kkey :started] now)
-       {:keys [ch-p n1]} (when (and (not is-processing) (pos? (.compareTo now expire-time)))
-                   (let [ ch (if is-async (fetch-data kkey) (go (fetch-data kkey))) 
-                         nstate (-> curr-state 
-                                    (assoc-in [kkey :processing] true)
-                                    (assoc-in [kkey :channel] ch)
-                                    (assoc-in [kkey :expires] (.plus now ttl))
-                                    (assoc-in [kkey :started] now))
-                         ]
-                     {:ch-p ch :n1 nstate}))
+       {:keys [ch-p n1]} (maybe-start-tasks curr-state kkey is-async is-processing now expire-time ttl)
        ch (or ch-p old-channel)
        new-state (or n1 curr-state)
        old-data (get-in new-state [kkey :data])
 
-       {:keys [poll-data n2]} (let [res (a/poll! ch) ]
-                        (if res 
-                          (let [
-                                nstate (-> new-state 
-                                           (assoc-in [kkey :processing] false)
-                                           (assoc-in [kkey :data] res)) ]
-                            {:poll-data res :n2 nstate}) 
-                          (when (and is-async is-processing)
-                            (let [delta (.minus now started)]
-                              (when (pos? (.compareTo delta async-timeout))
-                                (let [
-                                      nstate (-> new-state
-                                                 (assoc-in [kkey :processing] false)
-                                                 (assoc-in [kkey :expires] (Duration/ofNanos 0)))] 
-                                {:poll-data nil :n2 nstate}))))))
+       ; a ton of arguments, probably need to consolidate some of this stuff, 
+       ; but this function was getting gigantic so I wanted to start splitting 
+       ; stuff up. 
+       {:keys [poll-data n2]} (poller ch new-state kkey started now is-async is-processing async-timeout)
        data (or poll-data old-data)
        new-state-2 (or n2 new-state)
        rendered (if data 
