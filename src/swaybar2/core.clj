@@ -210,7 +210,7 @@
                                      StandardOpenOption/WRITE
                                      StandardOpenOption/TRUNCATE_EXISTING]))))
 
-(defn persist [in-ch out-path]
+(defn persist [in-ch out-path buffer-size]
     (go-loop [counter 0]
              (let [ res (<! in-ch)
                    new-res (reduce-kv (fn [m k v]
@@ -221,7 +221,7 @@
                    ]
                (when (= counter 0)
                  (write-bytes out-path packed-msg))
-               (recur (mod (inc counter) 10)))))
+               (recur (mod (inc counter) buffer-size)))))
 
 (defn read-bytes [^String path]
   (try 
@@ -241,8 +241,8 @@
 
           config-obj (json/read-str config-json)
           input (get-in config-obj ["modules"])
-          state-path (get-in config-obj ["state_path"])
-
+          state-path (get-in config-obj ["persist" "path"])
+          persist-buffer-size (get-in config-obj ["persist" "buffer_size"])
           init-state-bytes (read-bytes state-path)
           init-state (if init-state-bytes (msg/unpack init-state-bytes) {})
           ;_ (println (str "Init state: " init-state))
@@ -258,7 +258,7 @@
 
           in-chan (chan BUFFER-SIZE)]
       (force-graal-to-include-processbuilder)
-      (persist persist-chan state-path)
+      (persist persist-chan state-path persist-buffer-size)
       (renderer in-chan)
       (do-all my-timeout in-chan input module-map init-state persist-chan)
       (<!! (chan)))))

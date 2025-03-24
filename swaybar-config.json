@@ -1,12 +1,15 @@
 
 {
 	"poll_time" : 50,
-	"state_path": "/home/tombert/.config/sway/persist8.out",
+	"persist": {
+		"path": "/home/tombert/.config/sway/persist9.out",
+		"buffer_size": 1000
+	},
 	"modules" : [
 		{
+			"name": "bg-fetcher",
 			"async":true,
 			"async_timeout": 120000,
-			"name": "bg-fetcher",
 			"display" : false,
 			"persist_invoked_time": true,
 			"ttl": 21600000,

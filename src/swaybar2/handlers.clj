@@ -147,23 +147,26 @@
 ; (def backgrounds ["/home/tombert/wallpapers/awesome.png" 
 ;                   "/home/tombert/wallpapers/background.png"])
 
-(defmethod fetch-data :bg-fetcher [_ misc]
-  (go {:data {:nada ""}}))
 ; (defmethod fetch-data :bg-fetcher [_ misc]
-;   (go
-;     (let [directory (-> misc (get-in ["directory"]))
-;           rint1 (->> (quote-topics "")
-;                     count
-;                     rand-int)
-;           rint2 (->> (quote-topics "")
-;                     count
-;                     rand-int)
-;           topic1 (get (quote-topics "") rint1)
-;           topic2 (get (quote-topics "") rint2)
-;           prompt (str "Create a desktop wallpaper involving " topic1 " and " topic2 " interacting with each other.")
-;           ]
-;       (<! (generate-wallpaper prompt directory))
-;       {:data {:nada ""}})))
+;   (go 
+;     (spit "/home/tombert/dbg" "\n\n\n\n\n Made it to fetchdata" :append true)
+;     {:data {:nada ""}}))
+(defmethod fetch-data :bg-fetcher [_ misc]
+  (go
+    (spit "/home/tombert/dbg" "\n\n\n\n\n Made it to fetchdata" :append true)
+    (let [directory (-> misc (get-in ["directory"]))
+          rint1 (->> (quote-topics "")
+                     count
+                     rand-int)
+          rint2 (->> (quote-topics "")
+                     count
+                     rand-int)
+          topic1 (get (quote-topics "") rint1)
+          topic2 (get (quote-topics "") rint2)
+          prompt (str "Create a desktop wallpaper involving " topic1 " and " topic2 " interacting with each other.")
+          ]
+      (<! (generate-wallpaper prompt directory))
+      {:data {:nada ""}})))
 
 (defmethod fetch-data :bg-changer [_ misc]
   (let [backgrounds (-> misc (get-in ["directory"]) get-filenames)
