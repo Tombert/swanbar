@@ -1,5 +1,15 @@
 [
   {
+    "name": "java.nio.file.Files",
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "java.nio.file.Paths",
+    "allDeclaredMethods": true,
+    "allPublicMethods": true
+  },
+  {
     "name": "java.lang.ProcessBuilder",
     "allDeclaredConstructors": true,
     "allDeclaredMethods": true

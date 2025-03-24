@@ -1,8 +1,7 @@
 clj -T:build uber
 native-image \
 	--report-unsupported-elements-at-runtime \
-	--initialize-at-build-time \
-        --initialize-at-run-time=java.util.Random,java.security.SecureRandom,org.apache.http.impl.auth.NTLMEngineImpl \
+        --initialize-at-build-time \
 	--no-fallback \
 	--enable-https \
 	--enable-url-protocols=http,https \

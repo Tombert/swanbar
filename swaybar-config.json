@@ -1,6 +1,7 @@
 
 {
 	"poll_time" : 50,
+	"state_path": "/home/tombert/.config/sway/persist8.out",
 	"modules" : [
 		{
 			"async":true,

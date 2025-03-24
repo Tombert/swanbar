@@ -3,7 +3,7 @@
   (:import [java.time LocalDateTime]
            [java.nio.channels Channels SelectableChannel Selector SelectionKey]
            [java.lang ProcessBuilder ProcessBuilder$Redirect]
-
+           [java.nio.file Files Paths StandardOpenOption]
            [java.util.concurrent Executors]
            [java.nio ByteBuffer]
            [java.lang System]
@@ -12,6 +12,8 @@
   (:require
    [clojure.core.async.impl.dispatch :as dispatch]
    [clojure.data.json :as json]
+   [msgpack.core :as msg]
+   [msgpack.clojure-extensions]
    [swaybar2.handlers :as h
     :refer [render fetch-data cleanup process mouse-handler]]
    [clojure.core.async
@@ -67,7 +69,7 @@
           (when (pos? (.compareTo delta async-timeout))
             (let [nstate (-> state
                              (assoc-in [kkey :processing] false)
-                             (assoc-in [kkey :expires] (Duration/ofNanos 0)))]
+                             (assoc-in [kkey :expires] 0))]
               {:poll-data nil :n2 nstate})))))))
 
 (defn- maybe-start-tasks [curr-state misc kkey is-async is-processing ^Duration now ^Duration expire-time ^Duration ttl]
@@ -78,23 +80,23 @@
           nstate (-> curr-state
                      (assoc-in [kkey :processing] true)
                      (assoc-in [kkey :channel] ch)
-                     (assoc-in [kkey :expires] (.plus now ttl))
-                     (assoc-in [kkey :started] now)
-                    ; (assoc-in [kkey :p-data] p-data)
+                     (assoc-in [kkey :expires] (.toMillis (.plus now ttl)))
+                     (assoc-in [kkey :started] (.toMillis now))
                      
                      )]
-      ; (cleanup kkey (get-in curr-state [kkey :data]))
-      ; (process kkey (get-in curr-state [kkey :data]))
       {:ch-p ch :n1 nstate})))
 
 (defn- do-all-handler [i curr-state]
   (go
     (let
-     [kkey (-> i (get "name") keyword)
+     [
+      ;_ (println (str "\n\n\n\n curr-state" curr-state))
+      kkey (-> i (get "name") keyword)
       ttl (-> i
               (get "ttl" 0)
               Duration/ofMillis)
       nname (get i "name")
+      orig-out (get-in curr-state [kkey :out]  {:out "Waiting..."})
       is-async (get i "async" false)
 
        ; Don't love hard-coding this.  Might need to figure out
@@ -103,13 +105,17 @@
                         (get "async_timeout" 1000)
                         Duration/ofMillis)
       misc (-> i (get "misc"))
-      now (-> (System/nanoTime)
-              Duration/ofNanos)
+      now (-> (System/currentTimeMillis)
+              Duration/ofMillis)
       is-processing (get-in curr-state [kkey :processing] false)
       expire-time (-> curr-state
-                      (get-in [kkey :expires] (Duration/ofNanos 0)))
-      old-channel (get-in curr-state [kkey :channel])
-      started (get-in curr-state [kkey :started] now)
+                      (get-in [kkey :expires] 0)
+                      Duration/ofMillis)
+
+      old-channel (get-in curr-state [kkey :channel] (chan))
+      started (-> curr-state  
+                  (get-in [kkey :started] (.toMillis now)) 
+                  Duration/ofMillis)
       {:keys [ch-p n1]} (maybe-start-tasks curr-state misc kkey is-async is-processing now expire-time ttl)
       ch (or ch-p old-channel)
       new-state (or n1 curr-state)
@@ -123,13 +129,14 @@
       new-state-2 (or n2 new-state)
       rendered (if data
                  (render kkey (:data data))
-                 {:out "Waiting..."})
+                 orig-out)
+      new-state-3 (assoc-in new-state-2 [kkey :out] rendered)
       out-obj {:name nname
                :instance  nname
                :background (get i "background" "#000000")
                :color (get i "color" "#FFFFFF")
                :full_text (:out rendered)}]
-      {:module kkey :res out-obj :nstate new-state-2})))
+      {:module kkey :res out-obj :nstate new-state-3})))
 
 (defn renderer [input-chan]
   (go-loop []
@@ -137,11 +144,11 @@
       (println msg))
     (recur)))
 
-(defn do-all [^Duration my-timeout in-chan events module-map]
+(defn do-all [^Duration my-timeout in-chan events module-map init-state persist-chan]
   (>!! in-chan "{\"version\":1, \"click_events\":true}")
   (>!! in-chan "[")
   (>!! in-chan "[],")
-  (go-loop [my-state {}]
+  (go-loop [my-state init-state]
            (let [
                  start (-> (System/nanoTime) Duration/ofNanos)
                  input (read-stdin-if-ready)
@@ -187,6 +194,7 @@
                    delta (.minus my-timeout time-taken)
                    final-timeout (max 0 (.toMillis delta))]
 
+               (>! persist-chan n-state)
                (<! (timeout final-timeout))
                (recur n-state)))))
 (defn- args-to-keys [args]
@@ -195,28 +203,63 @@
        (map keyword)
        vec))
 
+(defn write-bytes [^String path ^bytes data]
+  (let [p (Paths/get path (make-array String 0))]
+    (Files/write p data (into-array StandardOpenOption
+                                    [StandardOpenOption/CREATE
+                                     StandardOpenOption/WRITE
+                                     StandardOpenOption/TRUNCATE_EXISTING]))))
+
+(defn persist [in-ch out-path]
+    (go-loop [counter 0]
+             (let [ res (<! in-ch)
+                   new-res (reduce-kv (fn [m k v]
+                                (assoc m k (-> v (dissoc :p-data) (dissoc :channel))))
+                              {}
+                              res)
+                   packed-msg (msg/pack new-res)
+                   ]
+               (when (= counter 0)
+                 (write-bytes out-path packed-msg))
+               (recur (mod (inc counter) 10)))))
+
+(defn read-bytes [^String path]
+  (try 
+    (Files/readAllBytes (Paths/get path (make-array String 0))) 
+  (catch Exception e 
+    nil)))
+
 (defn -main [& args]
   (System/setProperty "org.apache.commons.logging.Log" "org.apache.commons.logging.impl.NoOpLog")
   (let [executor-var (ns-resolve 'clojure.core.async.impl.dispatch 'EXECUTOR)]
     (when executor-var
       (alter-var-root executor-var
                       (constantly (Executors/newFixedThreadPool 1))))
-    (let [json-path (if (empty? args)  "swaybar-config.json" (first args))
-          input-json (slurp json-path)
+    (let [config-json-path (if (empty? args)  "swaybar-config.json" (first args))
+          config-json (slurp config-json-path)
+          persist-chan (chan 10)
 
-          in-obj (json/read-str input-json)
-          input (get-in in-obj ["modules"])
+          config-obj (json/read-str config-json)
+          input (get-in config-obj ["modules"])
+          state-path (get-in config-obj ["state_path"])
+
+          init-state-bytes (read-bytes state-path)
+          init-state (if init-state-bytes (msg/unpack init-state-bytes) {})
+          ;_ (println (str "Init state: " init-state))
           module-map (->>
                       input
                       (map
                        (fn [i]
                          [(keyword (get i "name")) i]))
                       (into {}))
-          my-timeout (-> in-obj (get-in ["poll_time"]) Duration/ofMillis)
+          my-timeout (-> config-obj 
+                         (get-in ["poll_time"]) 
+                         Duration/ofMillis)
 
           in-chan (chan BUFFER-SIZE)]
       (force-graal-to-include-processbuilder)
+      (persist persist-chan state-path)
       (renderer in-chan)
-      (do-all my-timeout in-chan input module-map)
+      (do-all my-timeout in-chan input module-map init-state persist-chan)
       (<!! (chan)))))
 
