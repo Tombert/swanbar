@@ -54,7 +54,7 @@
                                parse-n-key)
       :else :nothing)))
 
-(defn- poller [ch state kkey ^Duration started ^Duration now is-async is-processing async-timeout]
+(defn- poller [ch state kkey ^Duration started ^Duration now is-async is-processing timeout]
   (let [res (a/poll! ch)]
     (if res
       (let [
@@ -64,9 +64,9 @@
                        (assoc-in [kkey :data] res)
                        (assoc-in [kkey :p-data] p-data))]
         {:poll-data res :n2 nstate})
-      (when (and is-async is-processing)
+      (when (and is-processing)
         (let [delta (.minus now started)]
-          (when (pos? (.compareTo delta async-timeout))
+          (when (pos? (.compareTo delta timeout))
             (let [nstate (-> state
                              (assoc-in [kkey :processing] false)
                              (assoc-in [kkey :expires] 0))]
@@ -95,15 +95,16 @@
       ttl (-> i
               (get "ttl" 0)
               Duration/ofMillis)
+      default-timeout (-> curr-state (get-in [:default-timeout] 100))
       nname (get i "name")
       orig-out (get-in curr-state [kkey :out]  {:out "Waiting..."})
       is-async (get i "async" false)
 
        ; Don't love hard-coding this.  Might need to figure out
        ; a good way to avoid this. 
-      async-timeout (-> i
-                        (get "async_timeout" 1000)
-                        Duration/ofMillis)
+       timeout (-> i 
+                   (get "timeout" default-timeout)
+                   Duration/ofMillis)
       misc (-> i (get "misc"))
       now (-> (System/currentTimeMillis)
               Duration/ofMillis)
@@ -124,7 +125,7 @@
        ; a ton of arguments, probably need to consolidate some of this stuff, 
        ; but this function was getting gigantic so I wanted to start splitting 
        ; stuff up. 
-      {:keys [poll-data n2]} (poller ch new-state kkey started now is-async is-processing async-timeout)
+      {:keys [poll-data n2]} (poller ch new-state kkey started now is-async is-processing timeout)
       data (or poll-data old-data)
       new-state-2 (or n2 new-state)
       rendered (if data
@@ -150,6 +151,7 @@
   (>!! in-chan "[],")
   (go-loop [my-state init-state]
            (let [
+                 _ (spit "/home/tombert/dbg" (str "\n\n\nState: " my-state) :append true)
                  start (-> (System/nanoTime) Duration/ofNanos)
                  input (read-stdin-if-ready)
                  click-event (parse-std input)
@@ -237,14 +239,16 @@
                       (constantly (Executors/newFixedThreadPool 1))))
     (let [config-json-path (if (empty? args)  "swaybar-config.json" (first args))
           config-json (slurp config-json-path)
-          persist-chan (chan 10)
+          persist-chan (chan 100)
 
           config-obj (json/read-str config-json)
           input (get-in config-obj ["modules"])
+          default-timeout (get-in config-obj ["default_timeout"])
           state-path (get-in config-obj ["persist" "path"])
           persist-buffer-size (get-in config-obj ["persist" "buffer_size"])
           init-state-bytes (read-bytes state-path)
-          init-state (if init-state-bytes (msg/unpack init-state-bytes) {})
+          init-state-raw (if init-state-bytes (msg/unpack init-state-bytes) {})
+          init-state (-> init-state-raw (assoc-in [:default-timeout] default-timeout))
           ;_ (println (str "Init state: " init-state))
           module-map (->>
                       input

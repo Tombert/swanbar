@@ -1,6 +1,7 @@
 
 {
 	"poll_time" : 50,
+	"default_timeout": 100,
 	"persist": {
 		"path": "/home/tombert/.config/sway/persist9.out",
 		"buffer_size": 1000
@@ -9,7 +10,7 @@
 		{
 			"name": "bg-fetcher",
 			"async":true,
-			"async_timeout": 120000,
+			"timeout": 120000,
 			"display" : false,
 			"persist_invoked_time": true,
 			"ttl": 21600000,
@@ -27,7 +28,7 @@
 		},
 		{
 			"async": true,
-			"async_timeout": 1000,
+			"timeout": 1000,
 			"name": "quote",
 			"ttl": 480000,
 			"color": "#EEEEEE",
