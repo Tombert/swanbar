@@ -36,7 +36,7 @@
 		},
 		{
 			"name": "volume",
-			"ttl": 0, 
+			"ttl": 60, 
 			"click_program": "pavucontrol"
 		},
 		{
@@ -45,16 +45,16 @@
 		},
 		{
 			"name": "wifi",
-			"ttl": 1000,
+			"ttl": 10000,
 			"click_program": "iwgtk"
 		},
 		{
 			"name": "battery",
-			"ttl": 0 
+			"ttl": 60000 
 		},
 		{
 			"name": "date",
-			"ttl": 0 
+			"ttl": 600 
 		}
 	]
 }

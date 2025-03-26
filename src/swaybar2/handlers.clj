@@ -103,13 +103,16 @@
   (let [weekday (get day-abbrev (:day-of-week date) (:day-of-week date))
         month (get month-abbrev (:month date) (:month date))
         day (:day-of-month date)
-        hour (format "%02d" (mod (:hour date) 12))
+        hour-mod (mod (:hour date) 12)
+        hour-raw (if (= hour-mod 0) 12 hour-mod)
+        hour (format "%02d" hour-raw)
         minute (format "%02d" (:minute date))
+        secondz (format "%02d" (:second date))
         ampm (if (< (:hour date) 12) "AM" "PM")]
     {:out (str weekday " "
                month  " "
                day " "
-               hour ":" minute " "
+               hour ":" minute " " secondz " "
                ampm)}))
 
 (defmethod render :selected [_ selected]
