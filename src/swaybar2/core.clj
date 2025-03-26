@@ -151,7 +151,6 @@
   (>!! in-chan "[],")
   (go-loop [my-state init-state]
            (let [
-                 _ (spit "/home/tombert/dbg" (str "\n\n\nState: " my-state) :append true)
                  start (-> (System/nanoTime) Duration/ofNanos)
                  input (read-stdin-if-ready)
                  click-event (parse-std input)
