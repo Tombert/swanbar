@@ -10,6 +10,7 @@
            [java.time Duration])
   (:use [clojure.java.shell :only [sh]])
   (:require
+    [swaybar2.helpers :refer [write-bytes read-bytes]]
    [clojure.core.async.impl.dispatch :as dispatch]
    [clojure.data.json :as json]
    [msgpack.core :as msg]
@@ -100,8 +101,6 @@
       orig-out (get-in curr-state [kkey :out]  {:out "Waiting..."})
       is-async (get i "async" false)
 
-       ; Don't love hard-coding this.  Might need to figure out
-       ; a good way to avoid this. 
        timeout (-> i 
                    (get "timeout" default-timeout)
                    Duration/ofMillis)
@@ -204,12 +203,7 @@
        (map keyword)
        vec))
 
-(defn write-bytes [^String path ^bytes data]
-  (let [p (Paths/get path (make-array String 0))]
-    (Files/write p data (into-array StandardOpenOption
-                                    [StandardOpenOption/CREATE
-                                     StandardOpenOption/WRITE
-                                     StandardOpenOption/TRUNCATE_EXISTING]))))
+
 
 (defn persist [in-ch out-path buffer-size]
     (go-loop [counter 0]
@@ -224,11 +218,6 @@
                  (write-bytes out-path packed-msg))
                (recur (mod (inc counter) buffer-size)))))
 
-(defn read-bytes [^String path]
-  (try 
-    (Files/readAllBytes (Paths/get path (make-array String 0))) 
-  (catch Exception e 
-    nil)))
 
 (defn -main [& args]
   (System/setProperty "org.apache.commons.logging.Log" "org.apache.commons.logging.impl.NoOpLog")

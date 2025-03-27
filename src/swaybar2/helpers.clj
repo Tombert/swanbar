@@ -5,7 +5,7 @@
            [java.lang ProcessHandle ProcessBuilder ProcessBuilder$Redirect]
            [java.nio.channels Channels SelectableChannel Selector SelectionKey]
            [java.nio ByteBuffer]
-           [java.nio.file Paths Files]
+           [java.nio.file Files Paths StandardOpenOption]
            [java.lang System]
            [java.util UUID]
            [java.time Duration])
@@ -18,6 +18,18 @@
     :as a
     :refer [>! <! >!! <!! go go-loop chan buffer close! thread
             alts! alts!! timeout]]))
+
+(defn write-bytes [^String path ^bytes data]
+  (let [p (Paths/get path (make-array String 0))]
+    (Files/write p data (into-array StandardOpenOption
+                                    [StandardOpenOption/CREATE
+                                     StandardOpenOption/WRITE
+                                     StandardOpenOption/TRUNCATE_EXISTING]))))
+(defn read-bytes [^String path]
+  (try 
+    (Files/readAllBytes (Paths/get path (make-array String 0))) 
+  (catch Exception e 
+    nil)))
 
 (def open-ai-key (clojure.string/trim (slurp (str (System/getenv "HOME") "/.open-ai-key"))))
 

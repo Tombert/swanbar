@@ -41,7 +41,7 @@
 		},
 		{
 			"name": "selected",
-			"ttl": 0 
+			"ttl": 60 
 		},
 		{
 			"name": "wifi",
@@ -50,11 +50,11 @@
 		},
 		{
 			"name": "battery",
-			"ttl": 60000 
+			"ttl": 70000 
 		},
 		{
 			"name": "date",
-			"ttl": 600 
+			"ttl": 400 
 		}
 	]
 }
