@@ -1,4 +1,5 @@
-clj -T:build uber
+#clj -T:build uber
+clj -T:build uberjar :jar target/swaybar2.jar
 native-image \
 	--report-unsupported-elements-at-runtime \
         --initialize-at-build-time \

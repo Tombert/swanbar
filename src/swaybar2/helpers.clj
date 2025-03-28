@@ -31,7 +31,7 @@
   (catch Exception e 
     nil)))
 
-(def open-ai-key (clojure.string/trim (slurp (str (System/getenv "HOME") "/.open-ai-key"))))
+(def open-ai-key (delay (clojure.string/trim (slurp (str (System/getenv "HOME") "/.open-ai-key")))))
 
 (defn get-filenames [directory]
    (try (let [^Path dir (Paths/get directory (make-array String 0))]
@@ -41,7 +41,7 @@
           (spit "/home/tombert/dbg" (str "Except:" e) :append true))))
 
 (defn generate-mock [shells]
-  (let [api-key open-ai-key
+  (let [api-key @open-ai-key
         body {:model "gpt-3.5-turbo"
               :messages [{:role "system"
                           :content "You are an insult generator."}
@@ -60,7 +60,7 @@
   [prompt out-path ]
   (let [
         ret-chan (chan)
-        api-key open-ai-key]
+        api-key @open-ai-key]
     (hc/post "https://api.openai.com/v1/images/generations"
              {
               :async? true
@@ -91,7 +91,7 @@
 
 (defn call-gpt [prompt role]
   (let [return-chan (chan)
-        api-key open-ai-key
+        api-key @open-ai-key
         body {:model "gpt-3.5-turbo"
               :messages [{:role "system"
                           :content role}

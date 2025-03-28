@@ -4,39 +4,13 @@
         org.clojure/core.async {:mvn/version "1.7.701"}
         org.clojure/data.json {:mvn/version "2.5.1"}
         clj-http/clj-http {:mvn/version "3.13.0"}
+        org.clojure/tools.build {:mvn/version "0.9.2"}
         hato/hato {:mvn/version "1.0.0"}
         clojure-msgpack/clojure-msgpack {:mvn/version "1.2.1"}
         }
  :aliases
  {:nrepl {:extra-deps {nrepl/nrepl {:mvn/version "1.0.0"}}
           :main-opts ["-m" "nrepl.cmdline" "--interactive"]}
-  :native-image {:main-opts  ["-m clj.native-image core"
-                "--enable-https"
-                "--no-fallback"
-                "--allow-incomplete-classpath"
-                "--initialize-at-build-time"
-                "--enable-all-security-services"
-                "-H:ReflectionConfigurationFiles=graalvm/reflect-config.json"
-                "-H:+ReportExceptionStackTraces"
-                "--initialize-at-run-time=com.fasterxml.jackson.dataformat.cbor.CBORFactory"
-                ;; optional native image name override
-                "-H:Name=clj-kafka"]
-   :jvm-opts   ["-Dclojure.compiler.direct-linking=true"]
-   :extra-deps {clj.native-image
-                {:git/url    "https://github.com/taylorwood/clj.native-image.git"
-                 :exclusions [commons-logging/commons-logging
-                              org.slf4j/slf4j-nop]
-                 :sha        "7708e7fd4572459c81f6a6b8e44c96f41cdd92d4"}}}
-  :n
-           {:main-opts ["-m" "clj.native-image" "swaybar2.core"
-                        "--initialize-at-build-time"
-                        ;; optional native image name override
-                        "-H:Name=core"]
-            :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
-            :extra-deps
-            {clj.native-image/clj.native-image
-             {:git/url "https://github.com/taylorwood/clj.native-image.git"
-              :sha "7708e7fd4572459c81f6a6b8e44c96f41cdd92d4"}}}
-  :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.7" :git/sha "573711e"}}
-          :ns-default build}
+           
+  :build { :ns-default build}
   }}
