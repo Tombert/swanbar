@@ -21,11 +21,7 @@
 
           name = "swaybar2";
           src = ./.;
-          buildInputs = [
-            pkgs.clojure
-            pkgs.graalvm-ce
-            pkgs.unzip
-          ];
+          buildInputs = [ pkgs.clojure pkgs.graalvm-ce pkgs.unzip ];
 
           preBuild = ''
             echo "FAKE-KEY" > .open-ai-key
@@ -76,9 +72,9 @@
               runHook postBuild
           '';
           installPhase = ''
-                   mkdir -p $out
-                   cp -r $TMPDIR/target/* $out/
-		   '';
+                               mkdir -p $out
+                               cp -r $TMPDIR/target/* $out/
+            		   '';
         };
 
       });
